@@ -5,34 +5,100 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <style>
-        body { display: flex; height: 100vh; margin: 0; }
-        #sidebar { width: 200px; padding: 10px; background: #f0f0f0; }
+        body { display: flex; height: 100vh; margin: 0; font-family: Arial, sans-serif; }
+        #sidebar { width: 250px; padding: 10px; background: #f0f0f0; display: flex; flex-direction: column; }
         #main-content { flex-grow: 1; display: flex; flex-direction: column; }
         #editor-container { position: relative; flex-grow: 1; }
         #editor { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
         #output { height: 150px; overflow-y: auto; background: #000; color: #fff; padding: 10px; font-family: monospace; }
         .error { color: #ff6b6b; }
-        .file-list { list-style: none; padding: 0; }
-        .file-list li { cursor: pointer; padding: 5px; }
+        .file-list { list-style: none; padding: 0; overflow-y: auto; flex-grow: 1; }
+        .file-list li { cursor: pointer; padding: 5px; display: flex; justify-content: space-between; align-items: center; }
         .file-list li:hover { background: #e0e0e0; }
-        .cursor { position: absolute; width: 2px; height: 15px; background-color: red; pointer-events: none; }
+        .cursor { position: absolute; width: 2px; height: 15px; pointer-events: none; }
         .cursor-label { position: absolute; font-size: 10px; padding: 2px; border-radius: 3px; color: white; pointer-events: none; }
+        .project-actions, .file-actions { margin-bottom: 10px; }
+        button { margin: 2px; padding: 5px 10px; }
+        input, select { margin-bottom: 5px; padding: 5px; width: 100%; box-sizing: border-box; }
+        #save-status { position: fixed; bottom: 10px; right: 10px; padding: 5px 10px; background: #4CAF50; color: white; border-radius: 3px; display: none; }
+        #terminal {
+            display: flex;
+            flex-direction: column;
+            height: 150px;
+            background: #1e1e1e;
+            color: #fff;
+            font-family: 'Consolas', monospace;
+            padding: 10px;
+            overflow: hidden;
+        }
+        #output {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #ff6b6b; }
+        #terminal-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #execute-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            cursor: pointer;
+        }
+        #execute-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #clear-terminal-btn {
+            background-color: #607d8b;
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div id="sidebar">
-        <h3>Fichiers</h3>
-        <input type="text" id="filename" placeholder="Nom du fichier">
-        <button onclick="saveFile()">Sauvegarder</button>
+        <div class="project-actions">
+            <h3>Projets</h3>
+            <input type="text" id="project-name" placeholder="Nom du projet">
+            <button onclick="createProject()">Nouveau projet</button>
+            <button onclick="deleteProject()">Supprimer projet</button>
+            <select id="project-select" onchange="selectProject()">
+                <option value="">Sélectionner un projet</option>
+            </select>
+        </div>
+
+        <div class="file-actions">
+            <h3>Fichiers</h3>
+            <input type="text" id="filename" placeholder="Nom du fichier">
+            <button onclick="createFile()" disabled id="create-file-btn">Nouveau fichier</button>
+            <button onclick="renameFile()" disabled id="rename-file-btn">Renommer</button>
+            <button onclick="deleteFile()" disabled id="delete-file-btn">Supprimer</button>
+        </div>
         <ul id="file-list" class="file-list"></ul>
     </div>
     <div id="main-content">
         <div id="editor-container">
             <div id="editor"></div>
         </div>
-        <button onclick="executeCode()">Exécuter</button>
-        <pre id="output"></pre>
+        <div id="terminal">
+            <pre id="output"></pre>
+            <div id="terminal-actions">
+                <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
+                <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
+            </div>
+        </div>
     </div>
+    <div id="save-status">Sauvegardé</div>
 
     <script>
         const socket = io();
@@ -41,53 +107,229 @@
         editor.session.setMode("ace/mode/python");
 
         let currentFile = '';
+        let currentProject = '';
         let isUpdating = false;
         let localUserId = null;
+        let saveTimeout = null;
         const cursors = {};
+
+        // Initialisation des boutons avant leur utilisation
+        const createFileBtn = document.getElementById('create-file-btn');
+        const renameFileBtn = document.getElementById('rename-file-btn');
+        const deleteFileBtn = document.getElementById('delete-file-btn');
+        const executeBtn = document.getElementById('execute-btn');
+
+        editor.setReadOnly(true);
 
         socket.on('connect', () => {
             localUserId = socket.id;
-            socket.emit('get_file_list');
         });
 
-        function createCursor(userId, color) {
-            const cursorElement = document.createElement('div');
-            cursorElement.className = 'cursor';
-            cursorElement.style.backgroundColor = color;
-            
-            const labelElement = document.createElement('div');
-            labelElement.className = 'cursor-label';
-            labelElement.style.backgroundColor = color;
-            labelElement.textContent = `User ${userId.slice(0, 4)}`;
-            
-            cursors[userId] = {
-                cursor: cursorElement,
-                label: labelElement
-            };
-            
-            document.getElementById('editor-container').appendChild(cursorElement);
-            document.getElementById('editor-container').appendChild(labelElement);
+        function createProject() {
+            const projectName = document.getElementById('project-name').value;
+            if (projectName) {
+                socket.emit('create_project', {name: projectName});
+                document.getElementById('project-name').value = '';
+            }
         }
 
-        function updateCursorPosition(userId, position) {
-            if (!cursors[userId]) return;
-            
-            const pixelPosition = editor.renderer.textToScreenCoordinates(position.row, position.column);
-            const cursor = cursors[userId].cursor;
-            const label = cursors[userId].label;
-            
-            cursor.style.left = `${pixelPosition.pageX}px`;
-            cursor.style.top = `${pixelPosition.pageY}px`;
-            
-            label.style.left = `${pixelPosition.pageX}px`;
-            label.style.top = `${pixelPosition.pageY - 20}px`;
+        function deleteProject() {
+            if (currentProject && confirm(`Êtes-vous sûr de vouloir supprimer le projet "${currentProject}" ?`)) {
+                socket.emit('delete_project', {name: currentProject});
+                currentProject = '';
+                currentFile = '';
+                editor.setValue('');
+                updateUIState();
+            }
         }
 
-        editor.session.selection.on('changeCursor', () => {
-            const position = editor.selection.getCursor();
-            socket.emit('cursor_move', { position });
+        function createFile() {
+            const filename = document.getElementById('filename').value;
+            if (filename && currentProject) {
+                socket.emit('create_file', {name: filename, project: currentProject});
+                document.getElementById('filename').value = '';
+            }
+        }
+
+        function renameFile() {
+            if (currentFile && currentProject) {
+                const newName = prompt('Nouveau nom du fichier:', currentFile);
+                if (newName && newName !== currentFile) {
+                    socket.emit('rename_file', {
+                        old_name: currentFile,
+                        new_name: newName,
+                        project: currentProject
+                    });
+                }
+            }
+        }
+
+        function deleteFile() {
+            if (currentFile && currentProject && confirm(`Êtes-vous sûr de vouloir supprimer le fichier "${currentFile}" ?`)) {
+                socket.emit('delete_file', {name: currentFile, project: currentProject});
+                currentFile = '';
+                editor.setValue('');
+                updateUIState();
+            }
+        }
+
+        function showSaveStatus() {
+            const saveStatus = document.getElementById('save-status');
+            saveStatus.style.display = 'block';
+            setTimeout(() => {
+                saveStatus.style.display = 'none';
+            }, 2000);
+        }
+
+        function executeCode() {
+            if (!currentProject || !currentFile) {
+                const outputElement = document.getElementById('output');
+                outputElement.innerHTML += `<span class="error">Erreur : Aucun fichier actif. Sélectionnez un fichier avant d'exécuter.</span>\n`;
+                return;
+            }
+
+            const outputElement = document.getElementById('output');
+            outputElement.innerHTML += `<span class="success">> Exécution de ${currentFile} dans le projet ${currentProject}...</span>\n`;
+
+            socket.emit('execute_code', {
+                project: currentProject,
+                filename: currentFile,
+                code: editor.getValue()
+            });
+        }
+
+        function clearTerminal() {
+            const outputElement = document.getElementById('output');
+            outputElement.innerHTML = '';
+        }
+
+        socket.on('code_output', function(data) {
+            const outputElement = document.getElementById('output');
+
+            if (data.output) {
+                outputElement.innerHTML += `<span>${data.output}</span>`;
+            }
+
+            if (data.error) {
+                outputElement.innerHTML += `<span class="error">${data.error}</span>`;
+            }
+
+            // Faire défiler vers le bas
+            outputElement.scrollTop = outputElement.scrollHeight;
         });
 
+        editor.session.on('change', function(delta) {
+            if (!isUpdating && currentProject && currentFile) {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    socket.emit('save_file', {
+                        project: currentProject,
+                        filename: currentFile,
+                        content: editor.getValue()
+                    });
+                }, 500);
+            }
+        });
+
+        socket.on('project_list', function(data) {
+            const projectSelect = document.getElementById('project-select');
+            projectSelect.innerHTML = '<option value="">Sélectionner un projet</option>';
+            data.projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project;
+                option.textContent = project;
+                projectSelect.appendChild(option);
+            });
+        });
+
+        socket.on('project_selected', function(data) {
+            updateFileList(data.files);
+        });
+
+        socket.on('file_created', function(data) {
+            updateFileList(data.files);
+        });
+
+        socket.on('file_renamed', function(data) {
+            updateFileList(data.files);
+            if (currentFile === data.old_name) {
+                currentFile = data.new_name;
+            }
+        });
+
+        socket.on('file_deleted', function(data) {
+            updateFileList(data.files);
+            if (currentFile === data.name) {
+                currentFile = '';
+                editor.setValue('');
+                updateUIState();
+            }
+        });
+
+        socket.on('file_saved', function(data) {
+            showSaveStatus();
+        });
+
+        function updateFileList(files) {
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            files.forEach(file => {
+                const li = document.createElement('li');
+                const fileSpan = document.createElement('span');
+                fileSpan.textContent = file;
+                li.appendChild(fileSpan);
+                li.onclick = () => loadFile(file);
+                fileList.appendChild(li);
+            });
+        }
+
+        function selectProject() {
+            const projectSelect = document.getElementById('project-select');
+            currentProject = projectSelect.value;
+            currentFile = ''; // Réinitialiser le fichier actif lors du changement de projet
+            editor.setValue(''); // Effacer l'éditeur
+            if (currentProject) {
+                socket.emit('select_project', {name: currentProject});
+            }
+            updateUIState();
+        }
+
+        function loadFile(filename) {
+            if (!currentProject) return;
+            socket.emit('load_file', {filename: filename, project: currentProject});
+            currentFile = filename;
+            updateUIState();
+        }
+
+        socket.on('file_content', function(data) {
+            isUpdating = true;
+            editor.setValue(data.content, -1);
+            currentFile = data.filename;
+            updateUIState();
+            isUpdating = false;
+        });
+
+        function updateUIState() {
+            const projectSelected = currentProject !== '';
+            const fileSelected = currentFile !== '';
+
+            createFileBtn.disabled = !projectSelected;
+            renameFileBtn.disabled = !projectSelected || !fileSelected;
+            deleteFileBtn.disabled = !projectSelected || !fileSelected;
+            executeBtn.disabled = !projectSelected || !fileSelected;
+            editor.setReadOnly(!projectSelected || !fileSelected);
+
+            // Mettre à jour le texte du bouton d'exécution pour plus de clarté
+            if (!projectSelected) {
+                executeBtn.title = "Sélectionnez un projet pour exécuter le code";
+            } else if (!fileSelected) {
+                executeBtn.title = "Sélectionnez un fichier pour exécuter le code";
+            } else {
+                executeBtn.title = `Exécuter ${currentFile}`;
+            }
+        }
+
+        // Gestion des curseurs collaboratifs
         socket.on('user_connected', function(data) {
             if (data.user_id !== localUserId) {
                 createCursor(data.user_id, data.color);
@@ -108,77 +350,43 @@
             }
         });
 
-        function saveFile() {
-            const filename = document.getElementById('filename').value || currentFile;
-            if (!filename) {
-                alert('Veuillez entrer un nom de fichier');
-                return;
-            }
-            
-            const content = editor.getValue();
-            socket.emit('save_file', {filename: filename, content: content});
-            currentFile = filename;
+        function createCursor(userId, color) {
+            const cursorElement = document.createElement('div');
+            cursorElement.className = 'cursor';
+            cursorElement.style.backgroundColor = color;
+
+            const labelElement = document.createElement('div');
+            labelElement.className = 'cursor-label';
+            labelElement.style.backgroundColor = color;
+            labelElement.textContent = `User ${userId.slice(0, 4)}`;
+
+            cursors[userId] = {
+                cursor: cursorElement,
+                label: labelElement
+            };
+
+            document.getElementById('editor-container').appendChild(cursorElement);
+            document.getElementById('editor-container').appendChild(labelElement);
         }
 
-        function loadFile(filename) {
-            socket.emit('load_file', {filename: filename});
-            currentFile = filename;
+        function updateCursorPosition(userId, position) {
+            if (!cursors[userId]) return;
+
+            const pixelPosition = editor.renderer.textToScreenCoordinates(position.row, position.column);
+            const cursor = cursors[userId].cursor;
+            const label = cursors[userId].label;
+
+            cursor.style.left = `${pixelPosition.pageX}px`;
+            cursor.style.top = `${pixelPosition.pageY}px`;
+
+            label.style.left = `${pixelPosition.pageX}px`;
+            label.style.top = `${pixelPosition.pageY - 20}px`;
         }
 
-        editor.session.on('change', function(delta) {
-            if (!isUpdating) {
-                socket.emit('text_update', {
-                    delta: delta,
-                    text: editor.getValue()
-                });
-            }
-        });
-
-        socket.on('update_text', function(data) {
-            isUpdating = true;
-            const cursorPosition = editor.selection.getCursor();
-            editor.setValue(data.text, -1);
-            editor.selection.moveTo(cursorPosition.row, cursorPosition.column);
-            isUpdating = false;
-        });
-
-        socket.on('file_list', function(data) {
-            const fileList = document.getElementById('file-list');
-            fileList.innerHTML = '';
-            data.files.forEach(file => {
-                const li = document.createElement('li');
-                li.textContent = file;
-                li.onclick = () => loadFile(file);
-                fileList.appendChild(li);
-            });
-        });
-
-        socket.on('file_content', function(data) {
-            isUpdating = true;
-            editor.setValue(data.content, -1);
-            document.getElementById('filename').value = data.filename;
-            currentFile = data.filename;
-            isUpdating = false;
-        });
-
-        function executeCode() {
-            const code = editor.getValue();
-            socket.emit('execute_code', {code: code});
-        }
-
-        socket.on('code_output', function(data) {
-            const outputElement = document.getElementById('output');
-            outputElement.innerHTML = '';
-            
-            if (data.output) {
-                outputElement.appendChild(document.createTextNode(data.output));
-            }
-            
-            if (data.error) {
-                const errorElement = document.createElement('span');
-                errorElement.className = 'error';
-                errorElement.textContent = data.error;
-                outputElement.appendChild(errorElement);
+        editor.session.selection.on('changeCursor', () => {
+            if (currentProject && currentFile) {
+                const position = editor.selection.getCursor();
+                socket.emit('cursor_move', { position });
             }
         });
     </script>
