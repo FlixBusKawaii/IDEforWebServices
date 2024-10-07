@@ -1,66 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Éditeur collaboratif</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
-    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <title>IDE en ligne</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <style>
-        #editor, #terminal {
-            height: 45vh; /* Ajuste la hauteur des sections */
-            border: 1px solid #ccc;
-            margin-bottom: 10px;
-        }
+        body { display: flex; height: 100vh; margin: 0; }
+        #sidebar { width: 200px; padding: 10px; background: #f0f0f0; }
+        #main-content { flex-grow: 1; display: flex; flex-direction: column; }
+        #editor-container { position: relative; flex-grow: 1; }
+        #editor { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+        #output { height: 150px; overflow-y: auto; background: #000; color: #fff; padding: 10px; font-family: monospace; }
+        .error { color: #ff6b6b; }
+        .file-list { list-style: none; padding: 0; }
+        .file-list li { cursor: pointer; padding: 5px; }
+        .file-list li:hover { background: #e0e0e0; }
+        .cursor { position: absolute; width: 2px; height: 15px; background-color: red; pointer-events: none; }
+        .cursor-label { position: absolute; font-size: 10px; padding: 2px; border-radius: 3px; color: white; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="editor"></div>
-    <button id="execute">Exécuter le code</button>
-    <div id="terminal"></div>
+    <div id="sidebar">
+        <h3>Fichiers</h3>
+        <input type="text" id="filename" placeholder="Nom du fichier">
+        <button onclick="saveFile()">Sauvegarder</button>
+        <ul id="file-list" class="file-list"></ul>
+    </div>
+    <div id="main-content">
+        <div id="editor-container">
+            <div id="editor"></div>
+        </div>
+        <button onclick="executeCode()">Exécuter</button>
+        <pre id="output"></pre>
+    </div>
 
     <script>
-        var socket = io();
+        const socket = io();
+        const editor = ace.edit("editor");
+        editor.setTheme("ace/theme/monokai");
+        editor.session.setMode("ace/mode/python");
 
-        // Initialisation de CodeMirror pour l'éditeur
-        var editor = CodeMirror(document.getElementById('editor'), {
-            mode: "javascript", // Change ceci selon le langage que tu veux utiliser
-            lineNumbers: true
+        let currentFile = '';
+        let isUpdating = false;
+        let localUserId = null;
+        const cursors = {};
+
+        socket.on('connect', () => {
+            localUserId = socket.id;
+            socket.emit('get_file_list');
         });
 
-        // Initialisation de CodeMirror pour le terminal
-        var terminal = CodeMirror(document.getElementById('terminal'), {
-            mode: "text/plain",
-            lineNumbers: true,
-            readOnly: true // Rendre le terminal en lecture seule
+        function createCursor(userId, color) {
+            const cursorElement = document.createElement('div');
+            cursorElement.className = 'cursor';
+            cursorElement.style.backgroundColor = color;
+            
+            const labelElement = document.createElement('div');
+            labelElement.className = 'cursor-label';
+            labelElement.style.backgroundColor = color;
+            labelElement.textContent = `User ${userId.slice(0, 4)}`;
+            
+            cursors[userId] = {
+                cursor: cursorElement,
+                label: labelElement
+            };
+            
+            document.getElementById('editor-container').appendChild(cursorElement);
+            document.getElementById('editor-container').appendChild(labelElement);
+        }
+
+        function updateCursorPosition(userId, position) {
+            if (!cursors[userId]) return;
+            
+            const pixelPosition = editor.renderer.textToScreenCoordinates(position.row, position.column);
+            const cursor = cursors[userId].cursor;
+            const label = cursors[userId].label;
+            
+            cursor.style.left = `${pixelPosition.pageX}px`;
+            cursor.style.top = `${pixelPosition.pageY}px`;
+            
+            label.style.left = `${pixelPosition.pageX}px`;
+            label.style.top = `${pixelPosition.pageY - 20}px`;
+        }
+
+        editor.session.selection.on('changeCursor', () => {
+            const position = editor.selection.getCursor();
+            socket.emit('cursor_move', { position });
         });
 
-        var isLocalChange = false;
+        socket.on('user_connected', function(data) {
+            if (data.user_id !== localUserId) {
+                createCursor(data.user_id, data.color);
+            }
+        });
 
-        editor.on('change', function() {
-            if (!isLocalChange) {
-                var content = editor.getValue();
-                socket.emit('text_update', { text: content });
+        socket.on('user_disconnected', function(data) {
+            if (cursors[data.user_id]) {
+                cursors[data.user_id].cursor.remove();
+                cursors[data.user_id].label.remove();
+                delete cursors[data.user_id];
+            }
+        });
+
+        socket.on('cursor_update', function(data) {
+            if (data.user_id !== localUserId) {
+                updateCursorPosition(data.user_id, data.position);
+            }
+        });
+
+        function saveFile() {
+            const filename = document.getElementById('filename').value || currentFile;
+            if (!filename) {
+                alert('Veuillez entrer un nom de fichier');
+                return;
+            }
+            
+            const content = editor.getValue();
+            socket.emit('save_file', {filename: filename, content: content});
+            currentFile = filename;
+        }
+
+        function loadFile(filename) {
+            socket.emit('load_file', {filename: filename});
+            currentFile = filename;
+        }
+
+        editor.session.on('change', function(delta) {
+            if (!isUpdating) {
+                socket.emit('text_update', {
+                    delta: delta,
+                    text: editor.getValue()
+                });
             }
         });
 
         socket.on('update_text', function(data) {
-            isLocalChange = true;
-            var currentCursor = editor.getCursor();
-            editor.setValue(data.text);
-            editor.setCursor(currentCursor);
-            isLocalChange = false;
+            isUpdating = true;
+            const cursorPosition = editor.selection.getCursor();
+            editor.setValue(data.text, -1);
+            editor.selection.moveTo(cursorPosition.row, cursorPosition.column);
+            isUpdating = false;
         });
 
-        // Exécuter le code au clic du bouton
-        document.getElementById('execute').addEventListener('click', function() {
-            var code = editor.getValue();
-            socket.emit('execute_code', { code: code });
+        socket.on('file_list', function(data) {
+            const fileList = document.getElementById('file-list');
+            fileList.innerHTML = '';
+            data.files.forEach(file => {
+                const li = document.createElement('li');
+                li.textContent = file;
+                li.onclick = () => loadFile(file);
+                fileList.appendChild(li);
+            });
         });
 
-        // Écoute des résultats de l'exécution du code
+        socket.on('file_content', function(data) {
+            isUpdating = true;
+            editor.setValue(data.content, -1);
+            document.getElementById('filename').value = data.filename;
+            currentFile = data.filename;
+            isUpdating = false;
+        });
+
+        function executeCode() {
+            const code = editor.getValue();
+            socket.emit('execute_code', {code: code});
+        }
+
         socket.on('code_output', function(data) {
-            terminal.setValue(data.output); // Affiche le résultat dans le terminal
+            const outputElement = document.getElementById('output');
+            outputElement.innerHTML = '';
+            
+            if (data.output) {
+                outputElement.appendChild(document.createTextNode(data.output));
+            }
+            
+            if (data.error) {
+                const errorElement = document.createElement('span');
+                errorElement.className = 'error';
+                errorElement.textContent = data.error;
+                outputElement.appendChild(errorElement);
+            }
         });
     </script>
 </body>
