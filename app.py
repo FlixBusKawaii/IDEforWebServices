@@ -3,17 +3,23 @@ import json
 import subprocess
 import sys
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room, leave_room
 import shutil
 
 app = Flask(__name__)
 socketio = SocketIO(app, ping_timeout=10)
 
-PROJECTS_DIR = 'ide_projects'
+PROJECTS_DIR = os.path.join('/app', 'ide_projects')
+
 if not os.path.exists(PROJECTS_DIR):
     os.makedirs(PROJECTS_DIR)
+    print(f"Created projects directory at: {PROJECTS_DIR}")
+
+print(f"Using projects directory: {PROJECTS_DIR}")
+print(f"Projects directory: {os.path.abspath(PROJECTS_DIR)}")
 
 user_cursors = {}
+
 current_project = None
 
 @app.route('/')
@@ -119,27 +125,33 @@ def handle_select_project(data):
 
 @socketio.on('create_file')
 def handle_create_file(data):
-    project_name = data['project']
+    project_name = data.get('project')
+    filename = data.get('name')
+    
+    print(f"Creating file: {filename} in project: {project_name}")
+    print(f"Full path will be: {os.path.join(PROJECTS_DIR, project_name, filename)}")
+    
     if not project_name:
         emit('file_error', {'error': 'No project selected'})
         return
 
-    filename = data['name']
-    file_path = os.path.join(PROJECTS_DIR, project_name, filename)
-
-    if not os.path.exists(os.path.dirname(file_path)):
-        os.makedirs(os.path.dirname(file_path))
-
-    if not os.path.exists(file_path):
+    try:
+        file_path = os.path.join(PROJECTS_DIR, project_name, filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        
         with open(file_path, 'w') as f:
             f.write('')
+            
+        print(f"File successfully created at: {file_path}")
+        
         emit('file_created', {
             'name': filename,
             'project': project_name,
             'files': get_project_files(project_name)
         }, broadcast=True)
-    else:
-        emit('file_error', {'error': 'File already exists'})
+    except Exception as e:
+        print(f"Error creating file: {str(e)}")
+        emit('file_error', {'error': str(e)})
 
 @socketio.on('rename_file')
 def handle_rename_file(data):

@@ -67,6 +67,11 @@
 </head>
 <body>
     <div id="sidebar">
+        <div class="user-actions">
+            <h3>Utilisateurs connectés</h3>
+            <ul id="user-list"></ul>
+        </div>
+        
         <div class="project-actions">
             <h3>Projets</h3>
             <input type="text" id="project-name" placeholder="Nom du projet">
@@ -102,6 +107,8 @@
 
     <script>
         const socket = io();
+
+        // set the editor 
         const editor = ace.edit("editor");
         editor.setTheme("ace/theme/monokai");
         editor.session.setMode("ace/mode/python");
@@ -145,11 +152,23 @@
         }
     
         function createFile() {
-            const filename = document.getElementById('filename').value;
-            if (filename && currentProject) {
-                socket.emit('create_file', {name: filename, project: currentProject});
-                document.getElementById('filename').value = '';
+            const filename = document.getElementById('filename').value.trim();
+            if (!filename) {
+                alert('Please enter a filename');
+                return;
             }
+            
+            if (!currentProject) {
+                alert('Please select a project first');
+                return;
+            }
+            
+            console.log('Creating file:', {name: filename, project: currentProject}); // Debug log
+            
+            socket.emit('create_file', {
+                name: filename,
+                project: currentProject
+            });
         }
     
         function renameFile() {
