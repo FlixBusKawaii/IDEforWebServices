@@ -49,6 +49,7 @@ def get_project_files(project_name):
 def handle_execute_code(data):
     project_name = data.get('project')
     filename = data.get('filename')
+    file_type = data.get('type', 'python')
 
     if not project_name or not filename:
         emit('code_output', {
@@ -67,19 +68,48 @@ def handle_execute_code(data):
             })
             return
 
-        # Exécuter le code et capturer stdout et stderr
-        result = subprocess.run(
-            [sys.executable, file_path],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        if file_type == 'c':
+            # Utiliser Docker pour compiler et exécuter le fichier C
+            result = subprocess.run(
+                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', 'gcc', '/usr/src/app/' + filename, '-o', '/usr/src/app/output'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
 
-        emit('code_output', {
-            'output': result.stdout,
-            'error': result.stderr,
-            'success': result.returncode == 0
-        })
+            if result.returncode != 0:
+                emit('code_output', {
+                    'error': result.stderr,
+                    'success': False
+                })
+                return
+
+            result = subprocess.run(
+                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', '/usr/src/app/output'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            emit('code_output', {
+                'output': result.stdout,
+                'error': result.stderr,
+                'success': result.returncode == 0
+            })
+        else:
+            # Exécuter le code Python
+            result = subprocess.run(
+                [sys.executable, file_path],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            emit('code_output', {
+                'output': result.stdout,
+                'error': result.stderr,
+                'success': result.returncode == 0
+            })
     except subprocess.TimeoutExpired:
         emit('code_output', {
             'error': "Erreur : L'exécution du code a dépassé le délai imparti",
@@ -125,6 +155,7 @@ def handle_create_file(data):
         return
 
     filename = data['name']
+    file_type = data.get('type', 'python')
     file_path = os.path.join(PROJECTS_DIR, project_name, filename)
 
     if not os.path.exists(os.path.dirname(file_path)):
@@ -132,7 +163,10 @@ def handle_create_file(data):
 
     if not os.path.exists(file_path):
         with open(file_path, 'w') as f:
-            f.write('')
+            if file_type == 'python':
+                f.write('# Python file\n')
+            elif file_type == 'c':
+                f.write('// C file\n')
         emit('file_created', {
             'name': filename,
             'project': project_name,

@@ -80,6 +80,10 @@
         <div class="file-actions">
             <h3>Fichiers</h3>
             <input type="text" id="filename" placeholder="Nom du fichier">
+            <select id="file-type">
+                <option value="python">Python</option>
+                <option value="c">C</option>
+            </select>
             <button onclick="createFile()" disabled id="create-file-btn">Nouveau fichier</button>
             <button onclick="renameFile()" disabled id="rename-file-btn">Renommer</button>
             <button onclick="deleteFile()" disabled id="delete-file-btn">Supprimer</button>
@@ -145,8 +149,9 @@
 
         function createFile() {
             const filename = document.getElementById('filename').value;
+            const fileType = document.getElementById('file-type').value;
             if (filename && currentProject) {
-                socket.emit('create_file', {name: filename, project: currentProject});
+                socket.emit('create_file', {name: filename, project: currentProject, type: fileType});
                 document.getElementById('filename').value = '';
             }
         }
@@ -191,10 +196,13 @@
             const outputElement = document.getElementById('output');
             outputElement.innerHTML += `<span class="success">> Exécution de ${currentFile} dans le projet ${currentProject}...</span>\n`;
 
+            const fileType = currentFile.endsWith('.c') ? 'c' : 'python';
+
             socket.emit('execute_code', {
                 project: currentProject,
                 filename: currentFile,
-                code: editor.getValue()
+                code: editor.getValue(),
+                type: fileType
             });
         }
 
@@ -307,6 +315,13 @@
             currentFile = data.filename;
             updateUIState();
             isUpdating = false;
+
+            // Changer le mode de l'éditeur en fonction du type de fichier
+            if (currentFile.endsWith('.c')) {
+                editor.session.setMode("ace/mode/c_cpp");
+            } else {
+                editor.session.setMode("ace/mode/python");
+            }
         });
 
         function updateUIState() {
