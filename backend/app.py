@@ -6,7 +6,7 @@ from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import shutil
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=os.path.abspath("../frontend/templates"))
 socketio = SocketIO(app, ping_timeout=10)
 
 PROJECTS_DIR = os.path.join('/app', 'ide_projects')

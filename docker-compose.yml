@@ -1,8 +1,34 @@
-version: '3'
+version: '3.8'
 services:
-  web:
-    build: .
+  # frontend:
+  #   build: ./frontend
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./ide_projects:/app/ide_projects
+  #   depends_on:
+  #     - backend
+
+  backend:
+    build: ./backend
     ports:
       - "5000:5000"
     volumes:
       - ./ide_projects:/app/ide_projects
+    environment:
+      - FLASK_ENV=development
+
+  # python-compiler:
+  #   build: ./compilers/python
+  #   volumes:
+  #     - ./ide_projects:/code
+
+  # java-compiler:
+  #   build: ./compilers/java
+  #   volumes:
+  #     - ./ide_projects:/code
+
+  # cpp-compiler:
+  #   build: ./compilers/cpp
+  #   volumes:
+  #     - ./ide_projects:/code
