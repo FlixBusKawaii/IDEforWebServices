@@ -1,23 +1,24 @@
 version: '3.8'
 services:
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ./ide_projects:/app/ide_projects
-  #   depends_on:
-  #     - backend
-
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "5000:5000"
     volumes:
+      - ./backend:/app/backend
       - ./ide_projects:/app/ide_projects
+      - /var/run/docker.sock:/var/run/docker.sock 
+
     environment:
       - FLASK_ENV=development
-
+      - FLASK_APP=/app/backend/app.py
+    privileged: true 
+  # c_compiler:
+  #     build: ./compilers/c
+  #     volumes:
+  #         - ./ide_projects:/usr/src/app
   # python-compiler:
   #   build: ./compilers/python
   #   volumes:

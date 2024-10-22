@@ -1,12 +1,11 @@
-FROM python:3.9-slim
+FROM python:3.9
 
-WORKDIR /app
+WORKDIR /app/backend
 
-COPY requirements.txt requirements.txt
-COPY . .
+COPY backend/requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
-EXPOSE 5000
+COPY backend/ .
 
 CMD ["python", "app.py"]

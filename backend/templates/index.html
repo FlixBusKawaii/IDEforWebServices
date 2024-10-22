@@ -85,6 +85,10 @@
         <div class="file-actions">
             <h3>Fichiers</h3>
             <input type="text" id="filename" placeholder="Nom du fichier">
+            <select id="file-type">
+                <option value="py">Python</option>
+                <option value="c">C</option>
+            </select>
             <button onclick="createFile()" disabled id="create-file-btn">Nouveau fichier</button>
             <button onclick="renameFile()" disabled id="rename-file-btn">Renommer</button>
             <button onclick="deleteFile()" disabled id="delete-file-btn">Supprimer</button>
@@ -153,6 +157,8 @@
     
         function createFile() {
             const filename = document.getElementById('filename').value.trim();
+            const fileType = document.getElementById('file-type').value.trim();
+
             if (!filename) {
                 alert('Please enter a filename');
                 return;
@@ -167,6 +173,7 @@
             
             socket.emit('create_file', {
                 name: filename,
+                type : fileType,
                 project: currentProject
             });
         }
