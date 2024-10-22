@@ -8,13 +8,14 @@ services:
       - "5000:5000"
     volumes:
       - ./backend:/app/backend
-      - ./ide_projects:/app/ide_projects
-      - /var/run/docker.sock:/var/run/docker.sock 
-
+      - ./ide_projects:/app/ide_projects  # On garde le même chemin de montage
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - FLASK_ENV=development
       - FLASK_APP=/app/backend/app.py
-    privileged: true 
+      - PROJECTS_DIR=/app/ide_projects
+    privileged: true
+    
   # c_compiler:
   #     build: ./compilers/c
   #     volumes:

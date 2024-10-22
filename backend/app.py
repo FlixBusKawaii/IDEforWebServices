@@ -68,125 +68,105 @@ def handle_execute_code(data):
         })
         return
 
-@socketio.on('execute_code')
-def handle_execute_code(data):
-    project_name = data.get('project')
-    filename = data.get('filename')
-
-    if not project_name or not filename:
-        emit('code_output', {
-            'error': f"Erreur : Projet ({project_name}) ou fichier ({filename}) non spécifié",
-            'success': False
-        })
-        return
-
     try:
-        file_path = os.path.join(PROJECTS_DIR, project_name, filename)
+        # Chemin complet dans le conteneur Flask
+        host_file_path = os.path.join('/app/ide_projects', project_name, filename)
         
-        if not os.path.exists(file_path):
+        if not os.path.exists(host_file_path):
             emit('code_output', {
                 'error': f"Erreur : Le fichier {filename} n'existe pas dans le projet {project_name}",
                 'success': False
             })
             return
 
-        project_dir = os.path.dirname(file_path)
-        source_file = os.path.basename(file_path)
-
+        # Chemin pour le montage Docker
+        container_project_path = f"/app/ide_projects/{project_name}"
+        
         if filename.endswith(".py"):
             try:
-                print(f"Executing Python file: {file_path}")
+                print(f"Executing Python file: {host_file_path}")
                 
-                # Exécution dans un conteneur Docker Python
                 run_process = subprocess.Popen(
                     [
                         "docker", "run", "--rm",
-                        "--network", "none",  # Désactiver l'accès réseau par sécurité
-                        "-v", f"{project_dir}:/workspace",
-                        "-w", "/workspace",  # Définir le répertoire de travail
-                        "--memory", "512m",  # Limiter la mémoire
-                        "--cpus", "0.5",    # Limiter le CPU
-                        "python:3.9-slim",  # Utiliser l'image Python officielle
-                        "python", source_file
+                        "--network", "none",
+                        "-v", f"{container_project_path}:/workspace",  # Monte le dossier du projet
+                        "-w", "/workspace",  # Définit le dossier de travail
+                        "--memory", "512m",
+                        "--cpus", "0.5",
+                        "python:3.9-slim",
+                        "python", filename  # Utilise directement le nom du fichier
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
                 )
                 
-                try:
-                    stdout, stderr = run_process.communicate(timeout=10)  # 10 secondes timeout
-                    
-                    if run_process.returncode == 0:
-                        emit('code_output', {
-                            'output': stdout,
-                            'success': True
-                        })
-                    else:
-                        emit('code_output', {
-                            'error': f"Erreur d'exécution Python:\n{stderr}",
-                            'success': False
-                        })
-
-                except subprocess.TimeoutExpired:
-                    run_process.kill()
+                stdout, stderr = run_process.communicate(timeout=10)
+                
+                if run_process.returncode == 0:
                     emit('code_output', {
-                        'error': "Erreur : L'exécution a dépassé le délai de 10 secondes",
+                        'output': stdout,
+                        'success': True
+                    })
+                else:
+                    emit('code_output', {
+                        'error': f"Erreur d'exécution Python:\n{stderr}",
                         'success': False
                     })
 
-            except Exception as e:
+            except subprocess.TimeoutExpired:
+                run_process.kill()
                 emit('code_output', {
-                    'error': f"Erreur système : {str(e)}",
+                    'error': "Timeout après 10 secondes",
                     'success': False
                 })
 
         elif filename.endswith(".c"):
-            # Obtenir les chemins absolus
-            project_dir = os.path.dirname(file_path)
-            source_file = os.path.basename(file_path)
-            output_name = f"output_{os.path.splitext(source_file)[0]}"
+            output_name = f"output_{os.path.splitext(filename)[0]}"
             
             try:
                 # Compilation
-                print("Starting compilation...")
                 compile_process = subprocess.Popen(
                     [
                         "docker", "run", "--rm",
-                        "-v", f"{project_dir}:/workspace",
+                        "-v", f"{container_project_path}:/workspace",
+                        "-w", "/workspace",
                         "gcc:latest",
-                        "gcc", "-o", f"/workspace/{output_name}", f"/workspace/{source_file}"
+                        "gcc", "-o", output_name, filename
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
                 )
+                
                 compile_stdout, compile_stderr = compile_process.communicate(timeout=5)
                 
                 if compile_process.returncode != 0:
                     emit('code_output', {
-                        'error': f"Erreur de compilation :\n{compile_stderr}",
+                        'error': f"Erreur de compilation:\n{compile_stderr}",
                         'success': False
                     })
                     return
 
                 # Exécution
-                print("Starting execution...")
                 run_process = subprocess.Popen(
                     [
                         "docker", "run", "--rm",
-                        "-v", f"{project_dir}:/workspace",
+                        "-v", f"{container_project_path}:/workspace",
+                        "-w", "/workspace",
                         "gcc:latest",
-                        f"/workspace/{output_name}"
+                        f"./{output_name}"
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True
                 )
+                
                 run_stdout, run_stderr = run_process.communicate(timeout=5)
 
                 # Nettoyage
-                output_path = os.path.join(project_dir, output_name)
+                output_path = os.path.join(container_project_path, output_name)
                 if os.path.exists(output_path):
                     os.remove(output_path)
 
@@ -197,53 +177,22 @@ def handle_execute_code(data):
                     })
                 else:
                     emit('code_output', {
-                        'error': f"Erreur d'exécution :\n{run_stderr}",
+                        'error': f"Erreur d'exécution:\n{run_stderr}",
                         'success': False
                     })
 
             except subprocess.TimeoutExpired:
                 emit('code_output', {
-                    'error': "Erreur : L'exécution a dépassé le délai imparti",
-                    'success': False
-                })
-            except Exception as e:
-                emit('code_output', {
-                    'error': f"Erreur système : {str(e)}",
-                    'success': False
-                })
-
-        else:
-            # Pour les autres types de fichiers (Python, etc.)
-            try:
-                process = subprocess.Popen(
-                    [sys.executable, file_path],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                stdout, stderr = process.communicate(timeout=5)
-
-                emit('code_output', {
-                    'output': stdout,
-                    'error': stderr if process.returncode != 0 else None,
-                    'success': process.returncode == 0
-                })
-            except subprocess.TimeoutExpired:
-                emit('code_output', {
-                    'error': "Erreur : L'exécution a dépassé le délai imparti",
-                    'success': False
-                })
-            except Exception as e:
-                emit('code_output', {
-                    'error': f"Erreur : {str(e)}",
+                    'error': "Timeout",
                     'success': False
                 })
 
     except Exception as e:
         emit('code_output', {
-            'error': f"Erreur générale : {str(e)}",
+            'error': f"Erreur système: {str(e)}",
             'success': False
         })
+
 
 @socketio.on('create_project')
 def handle_create_project(data):
