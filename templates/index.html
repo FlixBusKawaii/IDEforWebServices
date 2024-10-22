@@ -63,6 +63,58 @@
             padding: 5px 15px;
             cursor: pointer;
         }
+
+        #terminals-container {
+        height: 200px;
+        background: #1e1e1e;
+        display: flex;
+        flex-direction: column;
+        }
+
+        .terminal-tabs {
+            display: flex;
+            background: #2d2d2d;
+        }
+
+        .terminal-tab {
+            padding: 8px 16px;
+            background: none;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        .terminal-tab.active {
+            opacity: 1;
+            border-bottom: 2px solid #4CAF50;
+        }
+
+        .terminal {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            padding: 10px;
+        }
+
+        .terminal.active {
+            display: flex;
+        }
+
+        .output {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #fff;
+        }
+
+        .terminal-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -81,7 +133,7 @@
             <h3>Fichiers</h3>
             <input type="text" id="filename" placeholder="Nom du fichier">
             <select id="file-type">
-                <option value="python">Python</option>
+                <option value="py">Python</option>
                 <option value="c">C</option>
             </select>
             <button onclick="createFile()" disabled id="create-file-btn">Nouveau fichier</button>
@@ -94,11 +146,24 @@
         <div id="editor-container">
             <div id="editor"></div>
         </div>
-        <div id="terminal">
-            <pre id="output"></pre>
-            <div id="terminal-actions">
-                <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
-                <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
+        <div id="terminals-container">
+            <div class="terminal-tabs">
+                <button id="python-tab" class="terminal-tab active" onclick="switchTerminal('python')">Terminal Python</button>
+                <button id="c-tab" class="terminal-tab" onclick="switchTerminal('c')">Terminal C</button>
+            </div>
+            <div id="python-terminal" class="terminal active">
+                <pre id="python-output" class="output"></pre>
+                <div class="terminal-actions">
+                    <button id="execute-python-btn" class="execute-btn" onclick="executeCode('python')">Exécuter Python</button>
+                    <button onclick="clearTerminal('python')" class="clear-terminal-btn">Effacer</button>
+                </div>
+            </div>
+            <div id="c-terminal" class="terminal">
+                <pre id="c-output" class="output"></pre>
+                <div class="terminal-actions">
+                    <button id="execute-c-btn" class="execute-btn" onclick="executeCode('c')">Compiler & Exécuter C</button>
+                    <button onclick="clearTerminal('c')" class="clear-terminal-btn">Effacer</button>
+                </div>
             </div>
         </div>
     </div>
@@ -117,6 +182,8 @@
         let saveTimeout = null;
         const cursors = {};
 
+        document.addEventListener('DOMContentLoaded', initializeUI);
+
         // Initialisation des boutons avant leur utilisation
         const createFileBtn = document.getElementById('create-file-btn');
         const renameFileBtn = document.getElementById('rename-file-btn');
@@ -128,6 +195,25 @@
         socket.on('connect', () => {
             localUserId = socket.id;
         });
+
+        function initializeUI() {
+            // Récupération des boutons
+            const executePythonBtn = document.getElementById('execute-python-btn');
+            const executeCBtn = document.getElementById('execute-c-btn');
+            const createFileBtn = document.getElementById('create-file-btn');
+            const renameFileBtn = document.getElementById('rename-file-btn');
+            const deleteFileBtn = document.getElementById('delete-file-btn');
+            
+            // Désactivation initiale des boutons
+            executePythonBtn.disabled = true;
+            executeCBtn.disabled = true;
+            createFileBtn.disabled = true;
+            renameFileBtn.disabled = true;
+            deleteFileBtn.disabled = true;
+            
+            // Définir l'éditeur en lecture seule initialement
+            editor.setReadOnly(true);
+        }
 
         function createProject() {
             const projectName = document.getElementById('project-name').value;
@@ -150,6 +236,7 @@
         function createFile() {
             const filename = document.getElementById('filename').value;
             const fileType = document.getElementById('file-type').value;
+            filename = filename +"."+ fileType;
             if (filename && currentProject) {
                 socket.emit('create_file', {name: filename, project: currentProject, type: fileType});
                 document.getElementById('filename').value = '';
@@ -186,33 +273,15 @@
             }, 2000);
         }
 
-        function executeCode() {
-            if (!currentProject || !currentFile) {
-                const outputElement = document.getElementById('output');
-                outputElement.innerHTML += `<span class="error">Erreur : Aucun fichier actif. Sélectionnez un fichier avant d'exécuter.</span>\n`;
-                return;
-            }
-
-            const outputElement = document.getElementById('output');
-            outputElement.innerHTML += `<span class="success">> Exécution de ${currentFile} dans le projet ${currentProject}...</span>\n`;
-
-            const fileType = currentFile.endsWith('.c') ? 'c' : 'python';
-
-            socket.emit('execute_code', {
-                project: currentProject,
-                filename: currentFile,
-                code: editor.getValue(),
-                type: fileType
-            });
-        }
-
         function clearTerminal() {
             const outputElement = document.getElementById('output');
             outputElement.innerHTML = '';
         }
 
         socket.on('code_output', function(data) {
-            const outputElement = document.getElementById('output');
+            // Déterminer quel terminal utiliser en fonction du type de fichier actuel
+            const type = currentFile.endsWith('.c') ? 'c' : 'python';
+            const outputElement = document.getElementById(`${type}-output`);
 
             if (data.output) {
                 outputElement.innerHTML += `<span>${data.output}</span>`;
@@ -294,11 +363,14 @@
         function selectProject() {
             const projectSelect = document.getElementById('project-select');
             currentProject = projectSelect.value;
-            currentFile = ''; // Réinitialiser le fichier actif lors du changement de projet
-            editor.setValue(''); // Effacer l'éditeur
+            currentFile = '';
+            editor.setValue('');
+            
             if (currentProject) {
                 socket.emit('select_project', {name: currentProject});
             }
+            
+            // Forcer la mise à jour de l'UI immédiatement après la sélection du projet
             updateUIState();
         }
 
@@ -306,6 +378,8 @@
             if (!currentProject) return;
             socket.emit('load_file', {filename: filename, project: currentProject});
             currentFile = filename;
+            
+            // Forcer la mise à jour de l'UI immédiatement après le chargement du fichier
             updateUIState();
         }
 
@@ -325,23 +399,38 @@
         });
 
         function updateUIState() {
-            const projectSelected = currentProject !== '';
-            const fileSelected = currentFile !== '';
-
+            const projectSelected = Boolean(currentProject);
+            const fileSelected = Boolean(currentFile);
+            
+            // Récupération des boutons
+            const executePythonBtn = document.getElementById('execute-python-btn');
+            const executeCBtn = document.getElementById('execute-c-btn');
+            const createFileBtn = document.getElementById('create-file-btn');
+            const renameFileBtn = document.getElementById('rename-file-btn');
+            const deleteFileBtn = document.getElementById('delete-file-btn');
+            
+            // Mise à jour des états des boutons
             createFileBtn.disabled = !projectSelected;
             renameFileBtn.disabled = !projectSelected || !fileSelected;
             deleteFileBtn.disabled = !projectSelected || !fileSelected;
-            executeBtn.disabled = !projectSelected || !fileSelected;
-            editor.setReadOnly(!projectSelected || !fileSelected);
-
-            // Mettre à jour le texte du bouton d'exécution pour plus de clarté
-            if (!projectSelected) {
-                executeBtn.title = "Sélectionnez un projet pour exécuter le code";
-            } else if (!fileSelected) {
-                executeBtn.title = "Sélectionnez un fichier pour exécuter le code";
+            
+            // Vérification du type de fichier seulement si un fichier est sélectionné
+            if (fileSelected) {
+                const isC = currentFile.endsWith('.c');
+                const isPython = currentFile.endsWith('.py');
+                
+                executePythonBtn.disabled = !isPython;
+                executeCBtn.disabled = !isC;
+                
+                // Activation du bon terminal
+                switchTerminal(isC ? 'c' : 'python');
             } else {
-                executeBtn.title = `Exécuter ${currentFile}`;
+                executePythonBtn.disabled = true;
+                executeCBtn.disabled = true;
             }
+            
+            // Mise à jour de l'état de l'éditeur
+            editor.setReadOnly(!projectSelected || !fileSelected);
         }
 
         // Gestion des curseurs collaboratifs
@@ -404,6 +493,51 @@
                 socket.emit('cursor_move', { position });
             }
         });
+
+        function switchTerminal(type) {
+            // Mettre à jour les onglets
+            document.querySelectorAll('.terminal-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(`${type}-tab`).classList.add('active');
+
+            // Mettre à jour les terminaux
+            document.querySelectorAll('.terminal').forEach(terminal => {
+                terminal.classList.remove('active');
+            });
+            document.getElementById(`${type}-terminal`).classList.add('active');
+        }
+
+        function executeCode(type) {
+            if (!currentProject || !currentFile) {
+                const outputElement = document.getElementById(`${type}-output`);
+                outputElement.innerHTML += `<span class="error">Erreur : Aucun fichier actif. Sélectionnez un fichier avant d'exécuter.</span>\n`;
+                return;
+            }
+
+            // Vérification supplémentaire du type de fichier
+            const fileType = currentFile.endsWith('.c') ? 'c' : 'python';
+            if (fileType !== type) {
+                const outputElement = document.getElementById(`${type}-output`);
+                outputElement.innerHTML += `<span class="error">Erreur : Type de fichier incompatible avec ce terminal.</span>\n`;
+                return;
+            }
+
+            const outputElement = document.getElementById(`${type}-output`);
+            outputElement.innerHTML += `<span class="success">> Exécution de ${currentFile} dans le projet ${currentProject}...</span>\n`;
+
+            socket.emit('execute_code', {
+                project: currentProject,
+                filename: currentFile,
+                code: editor.getValue(),
+                type: type
+            });
+        }
+
+        function clearTerminal(type) {
+            const outputElement = document.getElementById(`${type}-output`);
+            outputElement.innerHTML = '';
+        }
     </script>
 </body>
 </html>

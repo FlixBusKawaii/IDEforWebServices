@@ -49,7 +49,7 @@ def get_project_files(project_name):
 def handle_execute_code(data):
     project_name = data.get('project')
     filename = data.get('filename')
-    file_type = data.get('type', 'python')
+    execution_type = data.get('type')  # 'python' ou 'c'
 
     if not project_name or not filename:
         emit('code_output', {
@@ -68,36 +68,40 @@ def handle_execute_code(data):
             })
             return
 
-        if file_type == 'c':
-            # Utiliser Docker pour compiler et exécuter le fichier C
-            result = subprocess.run(
-                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', 'gcc', '/usr/src/app/' + filename, '-o', '/usr/src/app/output'],
+        if execution_type == 'c':
+            # Compilation C avec GCC dans Docker
+            compile_result = subprocess.run(
+                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', 
+                 'gcc', '-o', '/usr/src/app/output', '/usr/src/app/' + filename],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
 
-            if result.returncode != 0:
+            if compile_result.returncode != 0:
                 emit('code_output', {
-                    'error': result.stderr,
+                    'error': f"Erreur de compilation :\n{compile_result.stderr}",
                     'success': False
                 })
                 return
 
-            result = subprocess.run(
-                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', '/usr/src/app/output'],
+            # Exécution du programme compilé
+            run_result = subprocess.run(
+                ['docker', 'run', '--rm', '-v', f'{os.path.dirname(file_path)}:/usr/src/app', 'gcc:latest', 
+                 '/usr/src/app/output'],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
 
             emit('code_output', {
-                'output': result.stdout,
-                'error': result.stderr,
-                'success': result.returncode == 0
+                'output': run_result.stdout,
+                'error': run_result.stderr if run_result.returncode != 0 else None,
+                'success': run_result.returncode == 0
             })
-        else:
-            # Exécuter le code Python
+
+        elif execution_type == 'python':
+            # Exécution Python
             result = subprocess.run(
                 [sys.executable, file_path],
                 capture_output=True,
@@ -107,12 +111,13 @@ def handle_execute_code(data):
 
             emit('code_output', {
                 'output': result.stdout,
-                'error': result.stderr,
+                'error': result.stderr if result.returncode != 0 else None,
                 'success': result.returncode == 0
             })
+
     except subprocess.TimeoutExpired:
         emit('code_output', {
-            'error': "Erreur : L'exécution du code a dépassé le délai imparti",
+            'error': "Erreur : L'exécution du code a dépassé le délai imparti (5 secondes)",
             'success': False
         })
     except Exception as e:
@@ -120,17 +125,6 @@ def handle_execute_code(data):
             'error': f"Erreur : {str(e)}",
             'success': False
         })
-
-@socketio.on('create_project')
-def handle_create_project(data):
-    project_name = data['name']
-    project_path = os.path.join(PROJECTS_DIR, project_name)
-    if not os.path.exists(project_path):
-        os.makedirs(project_path)
-        emit('project_created', {'name': project_name}, broadcast=True)
-        emit('project_list', {'projects': get_projects()}, broadcast=True)
-    else:
-        emit('project_error', {'error': 'Project already exists'})
 
 @socketio.on('delete_project')
 def handle_delete_project(data):

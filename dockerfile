@@ -13,5 +13,5 @@ WORKDIR /usr/src/app
 # COPY . .
 
 # Compiler et exécuter le code
-# RUN gcc -o output main.c
-# CMD ["./output"]
+RUN gcc -o output main.c
+CMD ["./output"]
