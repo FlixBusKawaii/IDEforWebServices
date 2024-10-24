@@ -31,6 +31,16 @@
             padding: 10px;
             overflow: hidden;
         }
+        .file-list li.selected {
+            background-color: #4a90e2;
+            color: white;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .file-list li.selected:hover {
+            background-color: #357abd;
+        }
         #output {
             flex-grow: 1;
             overflow-y: auto;
@@ -365,11 +375,23 @@
 
         function loadFile(filename) {
             if (!currentProject) return;
-            console.log('Loading file:', {filename: filename, project: currentProject});
-            socket.emit('load_file', {filename: filename, project: currentProject});
+            
+            const fileListItems = document.querySelectorAll('#file-list li');
+            fileListItems.forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            const clickedFileItem = Array.from(fileListItems).find(item => item.textContent.trim() === filename);
+            if (clickedFileItem) {
+                clickedFileItem.classList.add('selected');
+            }
+
+            console.log('Loading file:', { filename: filename, project: currentProject });
+            socket.emit('load_file', { filename: filename, project: currentProject });
             currentFile = filename;
             updateUIState();
         }
+
 
         socket.on('file_content', function(data) {
             console.log('Received file_content:', data);
