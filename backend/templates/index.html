@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IDE en ligne</title>
+    <title>Ide en ligne</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <style>
@@ -71,7 +71,7 @@
             <h3>Utilisateurs connectés</h3>
             <ul id="user-list"></ul>
         </div>
-        
+
         <div class="project-actions">
             <h3>Projets</h3>
             <input type="text" id="project-name" placeholder="Nom du projet">
@@ -112,11 +112,11 @@
     <script>
         const socket = io();
 
-        // set the editor 
+        // set the editor
         const editor = ace.edit("editor");
         editor.setTheme("ace/theme/monokai");
         editor.session.setMode("ace/mode/python");
-    
+
         let currentFile = '';
         let currentProject = '';
         let isReceivingUpdate = false;
@@ -124,29 +124,36 @@
         let saveTimeout = null;
         let lastSentContent = '';
         const cursors = {};
-    
+
         // Initialisation des boutons
         const createFileBtn = document.getElementById('create-file-btn');
         const renameFileBtn = document.getElementById('rename-file-btn');
         const deleteFileBtn = document.getElementById('delete-file-btn');
         const executeBtn = document.getElementById('execute-btn');
-    
+
         editor.setReadOnly(true);
-    
+
         socket.on('connect', () => {
             localUserId = socket.id;
+            console.log('Connected to server');
         });
-    
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+        });
+
         function createProject() {
             const projectName = document.getElementById('project-name').value;
             if (projectName) {
+                console.log('Creating project:', projectName);
                 socket.emit('create_project', {name: projectName});
                 document.getElementById('project-name').value = '';
             }
         }
-    
+
         function deleteProject() {
             if (currentProject && confirm(`Êtes-vous sûr de vouloir supprimer le projet "${currentProject}" ?`)) {
+                console.log('Deleting project:', currentProject);
                 socket.emit('delete_project', {name: currentProject});
                 currentProject = '';
                 currentFile = '';
@@ -154,7 +161,7 @@
                 updateUIState();
             }
         }
-    
+
         function createFile() {
             const filename = document.getElementById('filename').value.trim();
             const fileType = document.getElementById('file-type').value.trim();
@@ -163,25 +170,26 @@
                 alert('Please enter a filename');
                 return;
             }
-            
+
             if (!currentProject) {
                 alert('Please select a project first');
                 return;
             }
-            
-            console.log('Creating file:', {name: filename, project: currentProject}); // Debug log
-            
+
+            console.log('Creating file:', {name: filename, project: currentProject});
+
             socket.emit('create_file', {
                 name: filename,
-                type : fileType,
+                type: fileType,
                 project: currentProject
             });
         }
-    
+
         function renameFile() {
             if (currentFile && currentProject) {
                 const newName = prompt('Nouveau nom du fichier:', currentFile);
                 if (newName && newName !== currentFile) {
+                    console.log('Renaming file:', {old_name: currentFile, new_name: newName, project: currentProject});
                     socket.emit('rename_file', {
                         old_name: currentFile,
                         new_name: newName,
@@ -190,16 +198,17 @@
                 }
             }
         }
-    
+
         function deleteFile() {
             if (currentFile && currentProject && confirm(`Êtes-vous sûr de vouloir supprimer le fichier "${currentFile}" ?`)) {
+                console.log('Deleting file:', {name: currentFile, project: currentProject});
                 socket.emit('delete_file', {name: currentFile, project: currentProject});
                 currentFile = '';
                 editor.setValue('');
                 updateUIState();
             }
         }
-    
+
         function showSaveStatus() {
             const saveStatus = document.getElementById('save-status');
             saveStatus.style.display = 'block';
@@ -207,43 +216,48 @@
                 saveStatus.style.display = 'none';
             }, 2000);
         }
-    
+
         function executeCode() {
+            const output = '';  // Variable pour stocker la sortie
+            const error = '';   // Variable pour stocker les erreurs
             if (!currentProject || !currentFile) {
                 const outputElement = document.getElementById('output');
                 outputElement.innerHTML += `<span class="error">Erreur : Aucun fichier actif. Sélectionnez un fichier avant d'exécuter.</span>\n`;
                 return;
             }
-    
+
             const outputElement = document.getElementById('output');
             outputElement.innerHTML += `<span class="success">> Exécution de ${currentFile} dans le projet ${currentProject}...</span>\n`;
-    
+
+            console.log('Executing code:', {project: currentProject, filename: currentFile, code: editor.getValue()});
             socket.emit('execute_code', {
                 project: currentProject,
                 filename: currentFile,
                 code: editor.getValue()
             });
         }
-    
+
         function clearTerminal() {
             const outputElement = document.getElementById('output');
             outputElement.innerHTML = '';
         }
-    
+
         editor.session.on('change', function(delta) {
             if (!isReceivingUpdate && currentProject && currentFile) {
                 // Envoyer la modification à tous les autres utilisateurs
+                console.log('Editor change:', delta);
                 socket.emit('editor_change', {
                     delta: delta,
                     project: currentProject,
                     filename: currentFile
                 });
-    
+
                 // Gérer la sauvegarde automatique
                 clearTimeout(saveTimeout);
                 saveTimeout = setTimeout(() => {
                     const currentContent = editor.getValue();
                     if (currentContent !== lastSentContent) {
+                        console.log('Saving file:', {project: currentProject, filename: currentFile, content: currentContent});
                         socket.emit('save_file', {
                             project: currentProject,
                             filename: currentFile,
@@ -254,30 +268,33 @@
                 }, 1000);
             }
         });
-    
+
         socket.on('editor_change', function(data) {
+            console.log('Received editor_change:', data);
             if (data.project === currentProject && data.filename === currentFile) {
                 isReceivingUpdate = true;
                 editor.session.getDocument().applyDeltas([data.delta]);
                 isReceivingUpdate = false;
             }
         });
-    
+
         socket.on('code_output', function(data) {
+            console.log('Received code_output:', data);
             const outputElement = document.getElementById('output');
-    
-            if (data.output) {
+
+            if (data && data.output) {
                 outputElement.innerHTML += `<span>${data.output}</span>`;
             }
-    
-            if (data.error) {
+
+            if (data && data.error) {
                 outputElement.innerHTML += `<span class="error">${data.error}</span>`;
             }
-    
+
             outputElement.scrollTop = outputElement.scrollHeight;
         });
-    
+
         socket.on('project_list', function(data) {
+            console.log('Received project_list:', data);
             const projectSelect = document.getElementById('project-select');
             projectSelect.innerHTML = '<option value="">Sélectionner un projet</option>';
             data.projects.forEach(project => {
@@ -287,23 +304,27 @@
                 projectSelect.appendChild(option);
             });
         });
-    
+
         socket.on('project_selected', function(data) {
+            console.log('Received project_selected:', data);
             updateFileList(data.files);
         });
-    
+
         socket.on('file_created', function(data) {
+            console.log('Received file_created:', data);
             updateFileList(data.files);
         });
-    
+
         socket.on('file_renamed', function(data) {
+            console.log('Received file_renamed:', data);
             updateFileList(data.files);
             if (currentFile === data.old_name) {
                 currentFile = data.new_name;
             }
         });
-    
+
         socket.on('file_deleted', function(data) {
+            console.log('Received file_deleted:', data);
             updateFileList(data.files);
             if (currentFile === data.name) {
                 currentFile = '';
@@ -311,11 +332,12 @@
                 updateUIState();
             }
         });
-    
+
         socket.on('file_saved', function(data) {
+            console.log('Received file_saved:', data);
             showSaveStatus();
         });
-    
+
         function updateFileList(files) {
             const fileList = document.getElementById('file-list');
             fileList.innerHTML = '';
@@ -328,26 +350,29 @@
                 fileList.appendChild(li);
             });
         }
-    
+
         function selectProject() {
             const projectSelect = document.getElementById('project-select');
             currentProject = projectSelect.value;
             currentFile = '';
             editor.setValue('');
             if (currentProject) {
+                console.log('Selecting project:', currentProject);
                 socket.emit('select_project', {name: currentProject});
             }
             updateUIState();
         }
-    
+
         function loadFile(filename) {
             if (!currentProject) return;
+            console.log('Loading file:', {filename: filename, project: currentProject});
             socket.emit('load_file', {filename: filename, project: currentProject});
             currentFile = filename;
             updateUIState();
         }
-    
+
         socket.on('file_content', function(data) {
+            console.log('Received file_content:', data);
             isReceivingUpdate = true;
             editor.setValue(data.content, -1);
             lastSentContent = data.content;
@@ -355,33 +380,35 @@
             updateUIState();
             isReceivingUpdate = false;
         });
-    
+
         function updateUIState() {
             const projectSelected = currentProject !== '';
             const fileSelected = currentFile !== '';
-    
+
             createFileBtn.disabled = !projectSelected;
             renameFileBtn.disabled = !projectSelected || !fileSelected;
             deleteFileBtn.disabled = !projectSelected || !fileSelected;
             executeBtn.disabled = !projectSelected || !fileSelected;
             editor.setReadOnly(!projectSelected || !fileSelected);
-    
-            if (!projectSelected) {
-                executeBtn.title = "Sélectionnez un projet pour exécuter le code";
-            } else if (!fileSelected) {
-                executeBtn.title = "Sélectionnez un fichier pour exécuter le code";
-            } else {
-                executeBtn.title = `Exécuter ${currentFile}`;
-            }
+
+            console.log('UI State updated:', {
+                projectSelected,
+                fileSelected,
+                createFileBtnDisabled: createFileBtn.disabled,
+                renameFileBtnDisabled: renameFileBtn.disabled,
+                deleteFileBtnDisabled: deleteFileBtn.disabled,
+                executeBtnDisabled: executeBtn.disabled,
+                editorReadOnly: editor.getReadOnly()
+            });
         }
-    
+
         // Gestion des curseurs collaboratifs
         socket.on('user_connected', function(data) {
             if (data.user_id !== localUserId) {
                 createCursor(data.user_id, data.color);
             }
         });
-    
+
         socket.on('user_disconnected', function(data) {
             if (cursors[data.user_id]) {
                 cursors[data.user_id].cursor.remove();
@@ -389,49 +416,50 @@
                 delete cursors[data.user_id];
             }
         });
-    
+
         socket.on('cursor_update', function(data) {
             if (data.user_id !== localUserId) {
                 updateCursorPosition(data.user_id, data.position);
             }
         });
-    
+
         function createCursor(userId, color) {
             const cursorElement = document.createElement('div');
             cursorElement.className = 'cursor';
             cursorElement.style.backgroundColor = color;
-    
+
             const labelElement = document.createElement('div');
             labelElement.className = 'cursor-label';
             labelElement.style.backgroundColor = color;
             labelElement.textContent = `User ${userId.slice(0, 4)}`;
-    
+
             cursors[userId] = {
                 cursor: cursorElement,
                 label: labelElement
             };
-    
+
             document.getElementById('editor-container').appendChild(cursorElement);
             document.getElementById('editor-container').appendChild(labelElement);
         }
-    
+
         function updateCursorPosition(userId, position) {
             if (!cursors[userId]) return;
-    
+
             const pixelPosition = editor.renderer.textToScreenCoordinates(position.row, position.column);
             const cursor = cursors[userId].cursor;
             const label = cursors[userId].label;
-    
+
             cursor.style.left = `${pixelPosition.pageX}px`;
             cursor.style.top = `${pixelPosition.pageY}px`;
-    
+
             label.style.left = `${pixelPosition.pageX}px`;
             label.style.top = `${pixelPosition.pageY - 20}px`;
         }
-    
+
         editor.session.selection.on('changeCursor', () => {
             if (currentProject && currentFile) {
                 const position = editor.selection.getCursor();
+                console.log('Cursor moved:', position);
                 socket.emit('cursor_move', { position });
             }
         });

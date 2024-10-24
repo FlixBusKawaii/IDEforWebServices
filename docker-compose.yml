@@ -7,30 +7,12 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./backend:/app/backend
-      - ./ide_projects:/app/ide_projects  # On garde le même chemin de montage
+      - ./backend:/app/backend:ro
+      - ./ide_projects:/app/ide_projects
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - FLASK_ENV=development
       - FLASK_APP=/app/backend/app.py
       - PROJECTS_DIR=/app/ide_projects
     privileged: true
-    
-  # c_compiler:
-  #     build: ./compilers/c
-  #     volumes:
-  #         - ./ide_projects:/usr/src/app
-  # python-compiler:
-  #   build: ./compilers/python
-  #   volumes:
-  #     - ./ide_projects:/code
-
-  # java-compiler:
-  #   build: ./compilers/java
-  #   volumes:
-  #     - ./ide_projects:/code
-
-  # cpp-compiler:
-  #   build: ./compilers/cpp
-  #   volumes:
-  #     - ./ide_projects:/code
+    user: "root"  
