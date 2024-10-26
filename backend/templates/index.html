@@ -13,7 +13,7 @@
         #output { height: 150px; overflow-y: auto; background: #000; color: #fff; padding: 10px; font-family: monospace; }
         .error { color: #ff6b6b; }
         .file-list { list-style: none; padding: 0; overflow-y: auto; flex-grow: 1; }
-        .file-list li { cursor: pointer; padding: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .file-list li { cursor: pointer; border-radius: 4px;padding: 5px; display: flex; justify-content: space-between; align-items: center; }
         .file-list li:hover { background: #e0e0e0; }
         .cursor { position: absolute; width: 2px; height: 15px; pointer-events: none; }
         .cursor-label { position: absolute; font-size: 10px; padding: 2px; border-radius: 3px; color: white; pointer-events: none; }
@@ -73,10 +73,111 @@
             padding: 5px 15px;
             cursor: pointer;
         }
+        .file-actions {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            margin-bottom: 10px;
+        }
+
+        .file-actions.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .project-info {
+            display: none;
+            background-color: #b7b7b7;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .project-info.visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .project-info h4 {
+            margin: 0 0 5px 0;
+            justify-self: center;
+            color: #000000;
+        }
+
+        button { 
+            margin: 2px; 
+            padding: 5px 10px; 
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #f5f5f5;
+        }
+
+        button:disabled {
+            background: #e0e0e0;
+            cursor: not-allowed;
+        }
+
+        input, select {
+            margin-bottom: 5px;
+            padding: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .user-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 4px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+        }
+
+        .user-item.current-user {
+            background-color: #e3f2fd;
+            border-color: #90caf9;
+        }
+
+        .user-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .user-name {
+            flex-grow: 1;
+            font-size: 14px;
+        }
+
+        .user-indicator {
+            font-size: 12px;
+            color: #666;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div id="sidebar">
+                <div id="project-info" class="project-info">
+            <h4>Projet actuel: <span id="current-project-name"></span></h4>
+        </div>
         <div class="user-actions">
             <h3>Utilisateurs connectés</h3>
             <ul id="user-list"></ul>
@@ -92,16 +193,18 @@
             </select>
         </div>
 
-        <div class="file-actions">
+
+
+        <div id="file-actions" class="file-actions">
             <h3>Fichiers</h3>
             <input type="text" id="filename" placeholder="Nom du fichier">
             <select id="file-type">
                 <option value="py">Python</option>
                 <option value="c">C</option>
             </select>
-            <button onclick="createFile()" disabled id="create-file-btn">Nouveau fichier</button>
-            <button onclick="renameFile()" disabled id="rename-file-btn">Renommer</button>
-            <button onclick="deleteFile()" disabled id="delete-file-btn">Supprimer</button>
+            <button onclick="createFile()" id="create-file-btn">Nouveau fichier</button>
+            <button onclick="renameFile()" id="rename-file-btn">Renommer</button>
+            <button onclick="deleteFile()" id="delete-file-btn">Supprimer</button>
         </div>
         <ul id="file-list" class="file-list"></ul>
     </div>
@@ -121,7 +224,8 @@
 
     <script>
         const socket = io();
-
+        const username = localStorage.getItem('username') || prompt('Entrez votre nom:');
+        localStorage.setItem('username', username);
         // set the editor
         const editor = ace.edit("editor");
         editor.setTheme("ace/theme/monokai");
@@ -366,10 +470,24 @@
             currentProject = projectSelect.value;
             currentFile = '';
             editor.setValue('');
+            
+            // Mise à jour de l'affichage des sections fichiers
+            const fileActions = document.getElementById('file-actions');
+            const projectInfo = document.getElementById('project-info');
+            const currentProjectName = document.getElementById('current-project-name');
+            
             if (currentProject) {
+                fileActions.classList.add('visible');
+                projectInfo.classList.add('visible');
+                currentProjectName.textContent = currentProject;
                 console.log('Selecting project:', currentProject);
                 socket.emit('select_project', {name: currentProject});
+            } else {
+                fileActions.classList.remove('visible');
+                projectInfo.classList.remove('visible');
+                currentProjectName.textContent = '';
             }
+            
             updateUIState();
         }
 
