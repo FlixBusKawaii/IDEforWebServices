@@ -8,7 +8,7 @@
 
     <style>
         body { display: flex; height: 100vh; margin: 0; font-family: Arial, sans-serif; }
-        #sidebar { width: 250px; padding: 10px; background: #f0f0f0; display: flex; flex-direction: column; }
+        #sidebar { width: 250px; padding: 10px; background: #f0f0f0; display: flex; flex-direction: column; border-right: 1px solid; }
         #main-content { flex-grow: 1; display: flex; flex-direction: column; }
         #editor-container { position: relative; flex-grow: 1; }
         #editor { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
@@ -186,11 +186,46 @@
             
         }
         
-        /* Style de l'icône */
         .theme-toggle .icon {
             transition: transform 1s ease;
             padding: 0;
 
+        }
+        .ip-container {
+            position: relative;
+            display: inline-block;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0px;
+            border: 1px solid #333;
+            border-radius: 50%;
+            text-align: center;
+            width: 30px;
+            height: 30px;
+            color: #333;
+            transition: background-color 0.3s;
+        }
+
+        .ip-tooltip {
+            visibility: hidden;
+            position: absolute;
+            bottom: 125%; 
+            left: 150%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* Affiche l'infobulle au survol */
+        .ip-container:hover .ip-tooltip {
+            visibility: visible;
+            opacity: 1;
         }
 
     </style>
@@ -230,6 +265,9 @@
             <button onclick="deleteFile()" id="delete-file-btn">Supprimer</button>
         </div>
         <ul id="file-list" class="file-list"></ul>
+        <div class="ip-container" id="ipButton">i
+            <span class="ip-tooltip" id="ipTooltip">IP : ...</span>
+        </div>
         <button class="theme-toggle" id="themeToggle">
             <span class="icon">☀️</span>
         </button>
@@ -273,7 +311,7 @@
         const themeToggleButton = document.getElementById('themeToggle');
         const icon = themeToggleButton.querySelector('.icon');
 
-
+        
         editor.setReadOnly(true);
 
         socket.on('connect', () => {
@@ -284,6 +322,18 @@
         socket.on('connect_error', (error) => {
             console.error('Connection error:', error);
         });
+        function fetchIpAddress() {
+            fetch('/get-ip')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('ipTooltip').textContent = "IP : " + data.ip;
+                })
+                .catch(error => {
+                    console.error("Erreur:", error);
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchIpAddress);
 
         function createProject() {
             const projectName = document.getElementById('project-name').value;

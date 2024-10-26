@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
+import socket
 from config import Config
 from services.project_service import ProjectService
 from services.file_service import FileService
@@ -15,6 +16,12 @@ Config.init_app()
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/get-ip', methods=['GET'])
+def get_ip():
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    return jsonify(ip=ip_address)
 
 # Socket event handlers
 from handlers.project_handler import register_project_handlers
