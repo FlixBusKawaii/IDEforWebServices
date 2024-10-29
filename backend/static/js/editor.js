@@ -22,7 +22,7 @@ const icon = themeToggleButton.querySelector('.icon');
 
 editor.setReadOnly(true);
 
-function createFolder(){
+function createFolder() {
     const filename = document.getElementById('filename').value.trim();
 
     if (!filename) {
@@ -41,8 +41,9 @@ function createFolder(){
         name: filename,
         project: currentProject
     });
-
 }
+
+
 function createProject() {
     const projectName = document.getElementById('project-name').value;
     if (projectName) {
@@ -144,16 +145,65 @@ function clearTerminal() {
 }
 
 
-function updateFileList(files) {
+// Mise à jour de la fonction updateFileList pour gérer à la fois les fichiers et les dossiers
+function updateFileList(data) {
+    console.log('Updating file list with:', data);
     const fileList = document.getElementById('file-list');
     fileList.innerHTML = '';
-    files.forEach(file => {
+
+    // Vérifier si nous avons des dossiers dans les données
+    const folders = data.folders || [];
+    const files = Array.isArray(data.files) ? data.files : (Array.isArray(data) ? data : []);
+
+    // Ajouter d'abord les dossiers
+    folders.forEach(folder => {
         const li = document.createElement('li');
-        const fileSpan = document.createElement('span');
-        fileSpan.textContent = file;
-        li.appendChild(fileSpan);
-        li.onclick = () => loadFile(file);
+        const folderSpan = document.createElement('span');
+        folderSpan.innerHTML = `📁 ${folder}`; // Utiliser une icône de dossier
+        folderSpan.classList.add('folder');
+        li.appendChild(folderSpan);
         fileList.appendChild(li);
+    });
+
+    // Ensuite ajouter les fichiers
+    files.forEach(file => {
+        if (typeof file === 'string' && !folders.includes(file)) { // Éviter les doublons
+            const li = document.createElement('li');
+            const fileSpan = document.createElement('span');
+            fileSpan.innerHTML = `📄 ${file}`; // Utiliser une icône de fichier
+            fileSpan.classList.add('file');
+            li.onclick = () => loadFile(file);
+            li.appendChild(fileSpan);
+            fileList.appendChild(li);
+        }
+    });
+}
+
+// Fonction auxiliaire pour mettre à jour les sous-listes de fichiers
+function updateSubFileList(parentElement, items) {
+    items.forEach(item => {
+        const li = document.createElement('li');
+        const itemSpan = document.createElement('span');
+        
+        if (typeof item === 'object' && item.type === 'folder') {
+            // Récursion pour les sous-dossiers
+            itemSpan.textContent = `📁 ${item.name}`;
+            li.classList.add('folder-item');
+            li.onclick = (e) => {
+                e.stopPropagation();
+                li.classList.toggle('folder-open');
+                // Même logique que précédemment pour les sous-dossiers
+            };
+        } else {
+            itemSpan.textContent = `📄 ${item}`;
+            li.onclick = (e) => {
+                e.stopPropagation();
+                loadFile(item);
+            };
+        }
+        
+        li.appendChild(itemSpan);
+        parentElement.appendChild(li);
     });
 }
 

@@ -10,14 +10,18 @@ def register_folder_handlers(socketio):
                 data.get('project'),
                 data.get('name'),
             )
+            # Obtenir la liste mise à jour des fichiers et dossiers
+            files = ProjectService.get_project_files(data.get('project'))
+            folders = ProjectService.get_project_folders(data.get('project'))
+            
             socketio.emit('folder_created', {
                 'name': foldername,
                 'project': data.get('project'),
-                'folders': ProjectService.get_project_folders(data.get('project'))
+                'files': files,
+                'folders': folders
             }, broadcast=True)
         except Exception as e:
             socketio.emit('folder_error', {'error': str(e)})
-
     @socketio.on('save_folder')
     def handle_save_folder(data):
         try:

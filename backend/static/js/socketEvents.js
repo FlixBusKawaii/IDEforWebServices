@@ -145,3 +145,21 @@ editor.session.selection.on('changeCursor', () => {
         socket.emit('cursor_move', { position });
     }
 });
+
+// Mise à jour des écouteurs d'événements socket
+socket.on('folder_created', (data) => {
+    console.log('Folder created:', data);
+    // Rafraîchir la liste des fichiers avec les nouveaux dossiers
+    updateFileList({
+        files: data.files || [],
+        folders: data.folders || []
+    });
+});
+
+socket.on('project_selected', (data) => {
+    console.log('Project selected:', data);
+    updateFileList({
+        files: data.files || [],
+        folders: data.folders || []
+    });
+});

@@ -253,20 +253,46 @@ select {
     font-size: 20px;
     position: absolute;
     bottom: 1rem;
-    left: 230px;
+    left: 220px;
     background: none;
-    border: none;
-    padding: 0;
+    border: 1px solid;
+    border-radius: 50%;
+    padding: 5px;
     transition: transform 1s ease;
-
+    
+    
 }
-
+.theme-toggle:hover{
+    transition: transform 1s ease;
+    transform: rotate(0.2turn) scale(1.5);
+}
+.theme-toggle:focus{
+    transition: transform 1s ease;
+    transform: rotate(1turn) scale(1);
+}
 .theme-toggle .icon {
     transition: transform 1s ease;
+
+    filter: saturate(0%) brightness(0%) contrast(1000%);
     padding: 0;
 
 }
+.theme-toggle .icon:hover {
+    transition: transform 1s ease;
+    
+}
+#ipButton{
+    position: absolute;
+    bottom: 1rem;
+    margin: 2px;
+    left: 30px;
+    transform: scale(1.101);
+    transition: transform 1s ease;
+}
+#ipButton:hover{
+    transform: scale(1.5);
 
+}
 .ip-container {
     position: relative;
     display: inline-block;
@@ -327,4 +353,36 @@ select {
 
 .context-menu li:hover {
     background-color: #f0f0f0;
+}
+
+#file-list li {
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+#file-list li:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.dark-theme #file-list li:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#file-list .folder {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+#file-list .file {
+    color: #666;
+}
+
+.dark-theme #file-list .file {
+    color: #ccc;
+}
+
+#file-list span {
+    margin-left: 5px;
 }
