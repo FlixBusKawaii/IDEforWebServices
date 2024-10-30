@@ -1,10 +1,11 @@
-
 const socket = io();
 const username = localStorage.getItem('username') || prompt('Entrez votre nom:');
 localStorage.setItem('username', username);
 
 socket.on('connect', () => {
     localUserId = socket.id;
+    uname = prompt("Entrez votre nom d'utilisateur");
+    socket.emit('user_connected', { user_id: localUserId, username: uname});
     console.log('Connected to server');
 });
 
@@ -162,4 +163,22 @@ socket.on('project_selected', (data) => {
         files: data.files || [],
         folders: data.folders || []
     });
+});
+
+// Lors de la réception de la liste d'utilisateurs
+socket.on('update_user_list', (data) => {
+    const userList = document.getElementById('user-list');
+    userList.innerHTML = ''; // Vider la liste actuelle
+
+    // Remplir la liste avec les utilisateurs connectés
+    data.users.forEach(user => {
+        const li = document.createElement('li');
+        li.textContent = user.username; // Suppose que user est un nom ou un ID
+        userList.appendChild(li);
+    });
+});
+
+// Lorsqu'un utilisateur se déconnecte
+window.addEventListener('beforeunload', () => {
+    socket.emit('user_disconnected', { user_id: localUserId });
 });
