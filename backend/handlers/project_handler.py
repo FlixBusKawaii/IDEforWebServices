@@ -8,10 +8,10 @@ def register_project_handlers(socketio):
     def handle_connect():  
         session_id = request.sid
         cursor_info = CursorService.add_user(session_id)
-        emit('user_connected', {
-            'user_id': session_id, 
-            'color': cursor_info['color']
-        }, to='broadcast')  
+        # emit('user_connected', {
+        #     'user_id': session_id, 
+        #     'color': cursor_info['color']
+        # }, to='broadcast')  
         emit('project_list', {
             'projects': ProjectService.get_projects()
         })

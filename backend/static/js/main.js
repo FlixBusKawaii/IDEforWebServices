@@ -3,6 +3,7 @@ editor.setTheme("ace/theme/clouds");
 
 let currentFile = '';
 let currentProject = '';
+let currentFolder ='';
 let isReceivingUpdate = false;
 let localUserId = null;
 let saveTimeout = null;
@@ -35,9 +36,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function handleMenuClick(option) {
+    let resultPrompt = null;
+
+    if (option === 'create_file' || option === 'rename_file' || option === 'create_folder') {
+        resultPrompt = prompt("Enter a name:");
+        if (!resultPrompt) {
+            alert("Name is required");
+            return; 
+        }
+    }
+
     switch (option){
         case 'create_file':
-            createFile();
+            createFile(resultPrompt);
             break;
         case 'rename_file':
             renameFile();
@@ -45,11 +56,15 @@ function handleMenuClick(option) {
         case 'delete_file':
             deleteFile();
             break;
-        case 'create_folder' :
-            createFolder();
+        case 'create_folder':
+            createFolder(resultPrompt);
+            break;
+        case 'delete_folder':
+            deleteFolder();
             break;
     }
 }
+
 
 function fetchIpAddress() {
     fetch('/get-ip')
@@ -64,10 +79,10 @@ function fetchIpAddress() {
 
 document.addEventListener('DOMContentLoaded', fetchIpAddress);
 
-function createFolder() {
-    const filename = document.getElementById('filename').value.trim();
+function createFolder(name) {
+    const foldername = name ||document.getElementById('filename').value.trim();
 
-    if (!filename) {
+    if (!foldername) {
         alert('Please enter a foldername');
         return;
     }
@@ -78,9 +93,17 @@ function createFolder() {
     }
 
     socket.emit('create_folder', {
-        name: filename,
+        name: foldername,
         project: currentProject
     });
+}
+function deleteFolder() {
+    if (currentFolder && currentProject && confirm(`Êtes-vous sûr de vouloir supprimer le dossier "${currentFolder}" ?`)) {
+        socket.emit('delete_folder', {name: currentFolder, project: currentProject});
+        currentFolder = '';
+        editor.setValue('');
+        updateUIState();
+    }
 }
 
 function createProject() {
@@ -101,8 +124,8 @@ function deleteProject() {
     }
 }
 
-function createFile() {
-    const filename = document.getElementById('filename').value.trim();
+function createFile(file_name) {
+    const filename = file_name || document.getElementById('filename').value.trim();
     const fileType = document.getElementById('file-type').value.trim();
 
     if (!filename) {
@@ -182,7 +205,6 @@ function updateFileList(data) {
         console.error('Élément file-list non trouvé dans le DOM');
         return;
     }
-    console.log('fileList:', fileList); // Vérifiez que fileList n'est pas null
     fileList.innerHTML = ''; // Vider la liste existante
 
     if (!data || data.length === 0) {
@@ -194,7 +216,6 @@ function updateFileList(data) {
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
-        console.log(`Traitement de l'item: nom=${item.name}, type=${item.type}`); // Debug
 
         if (item.name === '.' || item.name === '..') continue;
 
@@ -205,53 +226,44 @@ function updateFileList(data) {
         if (item.type === 'directory') {
             itemSpan.innerHTML = `📁 ${item.name || 'Sans nom'}`;
             itemSpan.classList.add('folder');
+            li.onclick = () => {
+                loadFolder(item.name);
+            };
         } else {
             itemSpan.innerHTML = `📄 ${item.name || 'Sans nom'}`;
             itemSpan.classList.add('file');
 
             // Ajoutez un événement onclick
             li.onclick = () => {
-                console.log(`Clic sur fichier: ${item.name}`); // Debug
                 loadFile(item.name, cursorPosition);
             };
         }
 
         li.appendChild(itemSpan);
-        fileList.appendChild(li); // Ajoutez li à fileList
-        console.log('Élément ajouté:', li); // Vérifiez l'élément ajouté
+        fileList.appendChild(li);
     }
 
     // Vérifiez le nombre d'enfants après l'ajout
-    console.log('Éléments dans fileList après ajout:', fileList.children.length);
 }
 
-
-function updateSubFileList(parentElement, items) {
-    items.forEach(item => {
-        const li = document.createElement('li');
-        const itemSpan = document.createElement('span');
-        const cursorPosition = editor.getCursorPosition();
-
-        if (typeof item === 'object' && item.type === 'folder') {
-            itemSpan.textContent = `📁 ${item.name}`;
-            li.classList.add('folder-item');
-            li.onclick = (e) => {
-                e.stopPropagation();
-                li.classList.toggle('folder-open');
-            };
-        } else {
-            itemSpan.textContent = `📄 ${item}`;
-            li.onclick = (e) => {
-                e.stopPropagation();
-                loadFile(item.name, cursorPosition);
-            };
-        }
-
-        li.appendChild(itemSpan);
-        parentElement.appendChild(li);
+function loadFolder(foldername){
+    const fileListItems = document.querySelectorAll('#file-list li');
+    fileListItems.forEach(item => {
+        item.classList.remove('selected');
     });
-}
+    const clickedFolderItem = Array.from(fileListItems).find(item => {
+        const itemText = item.textContent.trim().replace("📁 ", ""); // Retire l'emoji
+        return itemText === foldername;
+    });
 
+    if (clickedFolderItem) {
+        clickedFolderItem.classList.add('selected');
+    } else {
+        console.warn("File item not found for filename:", filename);
+    }
+    socket.emit('load_folder', { foldername: foldername});
+    currentFolder = foldername
+}
 function selectProject() {
     const projectSelect = document.getElementById('project-select');
     currentProject = projectSelect.value;
@@ -301,25 +313,32 @@ function toggleTheme() {
 }
 themeToggleButton.addEventListener('click', toggleTheme);
 
-function loadFile(filename ,cursorPos) {
+function loadFile(filename, cursorPos) {
     if (!currentProject) return;
+    clearCursors();
 
     const fileListItems = document.querySelectorAll('#file-list li');
     fileListItems.forEach(item => {
         item.classList.remove('selected');
     });
 
-    const clickedFileItem = Array.from(fileListItems).find(item => item.textContent.trim() === filename);
+    const clickedFileItem = Array.from(fileListItems).find(item => {
+        const itemText = item.textContent.trim().replace("📄 ", ""); // Retire l'emoji
+        return itemText === filename;
+    });
+
     if (clickedFileItem) {
         clickedFileItem.classList.add('selected');
+    } else {
+        console.warn("File item not found for filename:", filename);
     }
 
-    socket.emit('load_file', { filename: filename, project: currentProject , cursorpos :cursorPos });
+    socket.emit('load_file', { filename: filename, project: currentProject, cursorpos: cursorPos });
     currentFile = filename;
     geteditorSyntax(currentFile);
-
     updateUIState();
 }
+
 
 function updateUIState() {
     const projectSelected = currentProject !== '';
@@ -333,6 +352,10 @@ function updateUIState() {
 }
 
 function createCursor(userId, color) {
+    if (cursors[userId]) {
+        return;
+    }
+
     const cursorElement = document.createElement('div');
     cursorElement.className = 'cursor';
     cursorElement.style.backgroundColor = color;
@@ -352,17 +375,30 @@ function createCursor(userId, color) {
 }
 
 function updateCursorPosition(userId, position) {
-    if (!cursors[userId]) return;
-
+    if (!cursors[userId]) {
+        console.warn(`Cursor not found for user ${userId}`);
+        return;
+    }
+    
+    // Convertir la position du texte en position à l'écran
     const pixelPosition = editor.renderer.textToScreenCoordinates(position.row, position.column);
+    
+    // Ajuster la position en tenant compte du scroll et de la position de l'éditeur
+    const editorRect = editor.container.getBoundingClientRect();
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
     const cursor = cursors[userId].cursor;
     const label = cursors[userId].label;
-
-    cursor.style.left = `${pixelPosition.pageX}px`;
-    cursor.style.top = `${pixelPosition.pageY}px`;
-
-    label.style.left = `${pixelPosition.pageX}px`;
-    label.style.top = `${pixelPosition.pageY - 20}px`;
+    
+    // Mettre à jour les positions
+    cursor.style.transform = 'translate(-50%, 0)';
+    cursor.style.left = `${pixelPosition.pageX + scrollLeft - editorRect.left}px`;
+    cursor.style.top = `${pixelPosition.pageY + scrollTop - editorRect.top}px`;
+    
+    label.style.transform = 'translate(-50%, -100%)';
+    label.style.left = `${pixelPosition.pageX + scrollLeft - editorRect.left}px`;
+    label.style.top = `${pixelPosition.pageY + scrollTop - editorRect.top - 5}px`;
 }
 
 const socket = io();
@@ -403,6 +439,8 @@ socket.on('connect', () => {
         setUserCookie(uname,localUserId);
     }
     let userData = getUserCookie();
+    console.log(userData);
+    localUserId = userData["user_id"];
     socket.emit('user_connected', { user_id: userData["user_id"], username: userData["username"]});
 });
 
@@ -467,17 +505,15 @@ socket.on('project_list', function(data) {
 
 socket.on('project_selected', function(data) {
     
-    console.log('project_selected event received:', data);
-    console.log('Files received:', data.files);
     updateFileList(data.files);
 });
 
 socket.on('file_created', function(data) {
-    console.log('project_selected event received:', data);
-    console.log('Files received:', data.files);
     updateFileList(data.files);
 });
-
+socket.on('folder_created', function(data){
+    updateFileList(data.files);
+});
 socket.on('file_renamed', function(data) {
     updateFileList(data.files);
     if (currentFile === data.old_name) {
@@ -487,9 +523,16 @@ socket.on('file_renamed', function(data) {
 
 socket.on('file_deleted', function(data) {
     updateFileList(data.files);
-    console.log(data.files)
     if (currentFile === data.name) {
         currentFile = '';
+        editor.setValue('');
+        updateUIState();
+    }
+});
+socket.on('folder_deleted', function(data) {
+    updateFileList(data.files);
+    if (currentFolder === data.name) {
+        currentFolder = '';
         editor.setValue('');
         updateUIState();
     }
@@ -509,7 +552,6 @@ socket.on('file_saved', function(data) {
 socket.on('file_content', function(data) {
     isReceivingUpdate = true;
     editor.setValue(data.content, -1);
-    console.log(data.cursorpos);
     editor.moveCursorToPosition(data.cursorpos);
 
     editor.clearSelection();
@@ -534,32 +576,46 @@ socket.on('user_disconnected', function(data) {
     }
 });
 
+function clearCursors() {
+    // Parcourir tous les curseurs stockés
+    for (const userId in cursors) {
+        if (cursors.hasOwnProperty(userId)) {
+            // Supprimer les éléments DOM du curseur et du label
+            if (cursors[userId].cursor) {
+                cursors[userId].cursor.remove();
+            }
+            if (cursors[userId].label) {
+                cursors[userId].label.remove();
+            }
+            // Supprimer la référence dans l'objet cursors
+            delete cursors[userId];
+        }
+    }
+    // Au lieu de réassigner cursors, on le vide
+    Object.keys(cursors).forEach(key => delete cursors[key]);
+}
+
 socket.on('cursor_update', function(data) {
-    if (data.user_id !== localUserId) {
+    console.log(data.user_id);
+    console.log(data.position);
+
+    if (data.user_id !== localUserId && currentFile == data.currentFile) {
+        createCursor(data.user_id, '#333');
         updateCursorPosition(data.user_id, data.position);
     }
+    
 });
+
 
 editor.session.selection.on('changeCursor', () => {
     if (currentProject && currentFile) {
         const position = editor.selection.getCursor();
-        socket.emit('cursor_move', { position });
+        
+        socket.emit('cursor_move', { pos : position ,user_id: localUserId ,currentFile : currentFile});
+        //console.log("ca bouge")
     }
 });
 
-socket.on('folder_created', (data) => {
-    updateFileList({
-        files: data.files || [],
-        folders: data.folders || []
-    });
-});
-
-socket.on('project_selected', (data) => {
-    updateFileList({
-        files: data.files || [],
-        folders: data.folders || []
-    });
-});
 
 socket.on('update_user_list', (data) => {
     const userList = document.getElementById('user-list');
@@ -570,8 +626,11 @@ socket.on('update_user_list', (data) => {
             data.users.forEach(user => {
                 if (!existingUserIds.has(user.user_id)) {
                     const li = document.createElement('li');
-                    console.log(user.user_id)
-                    li.textContent = user.username;
+                    li.textContent = user.username;    
+                    if(user.user_id == localUserId){
+                        li.classList.add("current-user")
+                    }
+                    console.log(userList);
                     userList.appendChild(li);
                     existingUserIds.add(user.user_id);
                 }
@@ -586,9 +645,7 @@ socket.on('update_user_list', (data) => {
             break;
     }
 
-    if (data.user_id !== localUserId) {
-            createCursor(data.user_id, data.color);
-        }
+    
 });
 
 window.addEventListener('beforeunload', () => {

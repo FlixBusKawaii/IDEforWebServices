@@ -1,4 +1,5 @@
 import os
+import shutil
 from config import Config
 
 class folderService:
@@ -31,7 +32,8 @@ class folderService:
 
         folder_path = os.path.join(Config.PROJECTS_DIR, project_name, foldername)
         if os.path.exists(folder_path):
-            os.remove(folder_path)
+            # Utilisation de shutil.rmtree pour supprimer un dossier, même s'il contient des fichiers
+            shutil.rmtree(folder_path)
             return True
         return False
 
