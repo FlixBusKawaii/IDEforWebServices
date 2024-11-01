@@ -26,6 +26,7 @@ from handlers.file_handler import register_file_handlers
 from handlers.execution_handler import register_execution_handlers
 from handlers.cursor_handler import register_cursor_handlers
 from handlers.folder_handler import register_folder_handlers
+from handlers.connected_users_handler import register_connected_users_handlers
 
 def register_handlers(socketio):
     register_project_handlers(socketio)
@@ -33,6 +34,7 @@ def register_handlers(socketio):
     register_execution_handlers(socketio)
     register_cursor_handlers(socketio)
     register_folder_handlers(socketio)
+    register_connected_users_handlers(socketio)
 
 register_handlers(socketio)
 

@@ -1,7 +1,7 @@
 from flask import request
+from flask_socketio import emit
 import sys 
 import os
-
 from services import ProjectService, FileService, ExecutionService, CursorService
 
 def register_cursor_handlers(socketio):
@@ -10,7 +10,7 @@ def register_cursor_handlers(socketio):
         session_id = request.sid
         position = data['position']
         
-        socketio.emit('cursor_update', {
+        emit('cursor_update', {
             'user_id': session_id,
             'position': position
         }, to=request.sid)  
@@ -19,6 +19,6 @@ def register_cursor_handlers(socketio):
     def handle_disconnect():
         session_id = request.sid
         if CursorService.remove_user(session_id):
-            socketio.emit('user_disconnected', {
+            emit('user_disconnected', {
                 'user_id': session_id
             }, broadcast=True)

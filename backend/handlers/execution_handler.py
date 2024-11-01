@@ -1,3 +1,4 @@
+from flask_socketio import emit
 from services.execution_service import ExecutionService
 
 def register_execution_handlers(socketio):
@@ -10,17 +11,17 @@ def register_execution_handlers(socketio):
                     data.get('filename'),
                     data.get('code')
                 )
-                socketio.emit('code_output', result)
+                emit('code_output', result)
             if data.get('filename').endswith(".c") : 
                 result = ExecutionService.execute_c_file(
                     data.get('project'),
                     data.get('filename'),
                     data.get('code')
                 )
-                socketio.emit('code_output', result)
+                emit('code_output', result)
         
         except Exception as e:
-            socketio.emit('code_output', {
+            emit('code_output', {
                 'error': str(e),
                 'success': False
             })

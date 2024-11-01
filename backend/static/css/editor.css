@@ -31,6 +31,7 @@
 }
 
 .file-list {
+    display: block;
     list-style: none;
     padding: 0;
     overflow-y: auto;
@@ -41,6 +42,7 @@
     cursor: pointer;
     border-radius: 4px;
     padding: 5px;
+    z-index: 1000;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -353,36 +355,4 @@ select {
 
 .context-menu li:hover {
     background-color: #f0f0f0;
-}
-
-#file-list li {
-    padding: 4px 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-}
-
-#file-list li:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-}
-
-.dark-theme #file-list li:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-#file-list .folder {
-    color: #ffd700;
-    font-weight: bold;
-}
-
-#file-list .file {
-    color: #666;
-}
-
-.dark-theme #file-list .file {
-    color: #ccc;
-}
-
-#file-list span {
-    margin-left: 5px;
 }
