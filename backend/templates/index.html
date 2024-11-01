@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ide en ligne</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-c_cpp.js"></script>
+
+</head>
+<body>
+    <div id="sidebar">
+        
+        <div id="project-info" class="project-info">
+            <h4>Projet actuel: <span id="current-project-name"></span></h4>
+        </div>
+        <div class="user-actions">
+            <h3>Utilisateurs connectés</h3>
+            <ul id="user-list"></ul>
+        </div>
+
+        <div class="project-actions">
+            <h3>Projets</h3>
+            <input type="text" id="project-name" placeholder="Nom du projet">
+            <button onclick="createProject()">Nouveau projet</button>
+            <button onclick="deleteProject()">Supprimer projet</button>
+            <select id="project-select" onchange="selectProject()">
+                <option value="">Sélectionner un projet</option>
+            </select>
+            
+        </div>
+        <ul id="project-list" class="project-list"></ul>
+
+
+        <div id="file-actions" class="file-actions">
+            <h3>Fichiers</h3>
+            <input type="text" id="filename" placeholder="Nom du fichier">
+            <select id="file-type">
+                <option value="py">Python</option>
+                <option value="c">C</option>
+            </select>
+            <button onclick="createFile()" id="create-file-btn">Nouveau fichier</button>
+            <button onclick="renameFile()" id="rename-file-btn">Renommer</button>
+            <button onclick="deleteFile()" id="delete-file-btn">Supprimer</button>
+        </div>
+        <ul id="file-list" class="file-list"></ul>
+        <div class="ip-container" id="ipButton">i
+            <span class="ip-tooltip" id="ipTooltip">IP : ...</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle">
+            <span class="icon">☀️</span>
+        </button>
+    </div>
+    <div id="main-content">
+        <div id="editor-container">
+            <div id="editor"></div>
+        </div>
+        <div id="terminal">
+            <pre id="output"></pre>
+            <div id="terminal-actions">
+                <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
+                <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
+            </div>
+        </div>
+    </div>
+    <div id="contextMenu" class="context-menu">
+        <ul>
+            <li onclick="handleMenuClick('create_file')">Create file</li>
+            <li onclick="handleMenuClick('rename_file')">Rename file</li>
+            <li onclick="handleMenuClick('delete_file')">Delete file</li>
+            <li onclick="handleMenuClick('create_folder')">Create folder </li>
+            
+        </ul>
+    </div>
+    <div id="save-status">Sauvegardé</div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/socketEvents.js') }}"></script>
+
+</body>
+</html>
