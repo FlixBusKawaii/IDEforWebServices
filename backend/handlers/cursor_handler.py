@@ -7,13 +7,16 @@ from services import ProjectService, FileService, ExecutionService, CursorServic
 def register_cursor_handlers(socketio):
     @socketio.on('cursor_move')
     def handle_cursor_move(data):
-        session_id = request.sid
-        position = data['position']
+        
+        user_id = data.get('user_id')  
+        position = data['pos']
         
         emit('cursor_update', {
-            'user_id': session_id,
-            'position': position
-        }, to=request.sid)  
+            'user_id': user_id,  
+            'position': position,
+            'currentFile':data['currentFile']
+
+        }, broadcast=True, include_self=False)   
 
     @socketio.on('disconnect')
     def handle_disconnect():

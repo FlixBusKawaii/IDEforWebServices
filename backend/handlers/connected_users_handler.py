@@ -7,8 +7,6 @@ def register_connected_users_handlers(socketio):
         try:
             user_id = data.get('user_id')
             username = data.get('username')
-            
-
             if user_id and username:
                 ConnectedUsersService.add_user(user_id, username)
                 

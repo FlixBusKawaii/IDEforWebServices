@@ -14,16 +14,16 @@ def register_folder_handlers(socketio):
             )
             # Obtenir la liste mise à jour des fichiers et dossiers
             files = ProjectService.get_project_files(data.get('project'))
-            folders = ProjectService.get_project_folders(data.get('project'))
             
             emit('folder_created', {
                 'name': foldername,
                 'project': data.get('project'),
                 'files': files,
-                'folders': folders
+                
             }, broadcast=True)
         except Exception as e:
             emit('folder_error', {'error': str(e)})
+        
     @socketio.on('save_folder')
     def handle_save_folder(data):
         try:
@@ -49,3 +49,15 @@ def register_folder_handlers(socketio):
             })
         except Exception as e:
             emit('load_error', {'error': str(e)})
+    
+    @socketio.on('delete_folder')
+    def handle_delete_file(data):
+        try:
+            folderService.delete_folder(data['project'], data['name'])
+            emit('folder_deleted', {
+            'name': data['name'],
+            'files': ProjectService.get_project_files(data['project'])
+            }, broadcast=True)
+        except Exception as e:
+            emit('load_error', {'error': str(e)})
+
