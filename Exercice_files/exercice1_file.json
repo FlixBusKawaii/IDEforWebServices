@@ -1,0 +1,40 @@
+{
+    "exercises": [
+        {
+            "id": "ex001",
+            "name": "Calculateur de Factorielle",
+            "description": "Créez une fonction qui calcule la factorielle d'un nombre",
+            "template": "def factorial(n):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test factorielle de 0",
+                    "test_code": "assert factorial(0) == 1",
+                    "expected_output": "1"
+                },
+                {
+                    "name": "Test factorielle de 5",
+                    "test_code": "assert factorial(5) == 120",
+                    "expected_output": "120"
+                }
+            ]
+        },
+        {
+            "id": "ex002",
+            "name": "Palindrome Checker",
+            "description": "Créez une fonction qui vérifie si une chaîne est un palindrome",
+            "template": "def is_palindrome(text):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test chaîne vide",
+                    "test_code": "assert is_palindrome('') == True",
+                    "expected_output": "True"
+                },
+                {
+                    "name": "Test palindrome simple",
+                    "test_code": "assert is_palindrome('radar') == True",
+                    "expected_output": "True"
+                }
+            ]
+        }
+    ]
+}

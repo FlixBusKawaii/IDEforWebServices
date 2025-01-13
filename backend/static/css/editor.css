@@ -7,6 +7,8 @@
 #editor-container {
     position: relative;
     flex-grow: 1;
+    margin: 2% 0 0 0;
+    padding: 0;
 }
 
 #editor {
@@ -342,4 +344,8 @@ select {
 
 .context-menu li:hover {
     background-color: #f0f0f0;
+}
+
+.hidden-in-exercise {
+    display: none;
 }

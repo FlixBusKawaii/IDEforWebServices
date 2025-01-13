@@ -1,0 +1,19 @@
+{
+    "tests": [
+        {
+            "name": "Test addition simple 1",
+            "test_code": "assert add(2, 3) == 5",
+            "expected_output": "5"
+        },
+        {
+            "name": "Test addition simple 2",
+            "test_code": "assert add(2, -3) == -1",
+            "expected_output": "-1"
+        },
+        {
+            "name": "Test addition simple 3",
+            "test_code": "assert add(-2, -3) == -5",
+            "expected_output": "-5"
+        }
+    ]
+}

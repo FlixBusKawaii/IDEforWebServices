@@ -1,84 +1,180 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Ide en ligne</title>
+    <title>IDE en ligne</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-c_cpp.js"></script>
-
 </head>
 <body>
-    <div id="sidebar">
+    <header>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="switchMode('colab')">Mode Colab</a></li>
+                <li><a href="#" onclick="switchMode('exercise')">Mode Exercice</a></li>
+                <li class="user-profile-icon">
+                    <a href="#" onclick="toggleProfile()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </header>
+    <body data-mode="colab">
+        <header>
+            <nav>
+                <ul>
+                    <li><a href="#" onclick="switchMode('colab')">Mode Colab</a></li>
+                    <li><a href="#" onclick="switchMode('exercise')">Mode Exercice</a></li>
+                    <li class="user-profile-icon">
+                        <a href="#" onclick="toggleProfile()">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </header>
         
-        <div id="project-info" class="project-info">
-            <h4>Projet actuel: <span id="current-project-name"></span></h4>
-        </div>
-        <div class="user-actions">
-            <h3>Utilisateurs connectés</h3>
-            <ul id="user-list"></ul>
-        </div>
-
-        <div class="project-actions">
-            <h3>Projets</h3>
-            <input type="text" id="project-name" placeholder="Nom du projet">
-            <button onclick="createProject()">Nouveau projet</button>
-            <button onclick="deleteProject()">Supprimer projet</button>
-            <select id="project-select" onchange="selectProject()">
-                <option value="">Sélectionner un projet</option>
-            </select>
+        <!-- Sidebar -->
+        <div id="sidebar" class="mode mode-colab mode-exercise">
+            <div id="project-info" class="project-info">
+                <h4>Projet actuel: <span id="current-project-name"></span></h4>
+            </div>
             
+            <!-- Section visible uniquement en mode colab -->
+            <div class="mode-colab">
+                <div class="user-actions">
+                    <h3>Utilisateurs connectés</h3>
+                    <ul id="user-list"></ul>
+                </div>
+                <div class="project-actions">
+                    <h3>Projets</h3>
+                    <input type="text" id="project-name" placeholder="Nom du projet">
+                    <button onclick="createProject()">Nouveau projet</button>
+                    <button onclick="deleteProject()">Supprimer projet</button>
+                    <select id="project-select" onchange="selectProject()">
+                        <option value="">Sélectionner un projet</option>
+                    </select>
+                </div>
+            </div>
+            
+            <ul id="project-list" class="project-list"></ul>
+            
+            <div id="file-actions" class="file-actions">
+                <h3>Fichiers</h3>
+                <input type="text" id="filename" placeholder="Nom du fichier">
+                <select id="file-type">
+                    <option value="py">Python</option>
+                    <option value="c">C</option>
+                </select>
+                <!-- Ces boutons seront cachés en mode exercice -->
+                <button onclick="createFile()" class="hidden-in-exercise">Nouveau fichier</button>
+                <button onclick="renameFile()" class="hidden-in-exercise">Renommer</button>
+                <button onclick="deleteFile()" class="hidden-in-exercise">Supprimer</button>
+            </div>
+            
+            <ul id="file-list" class="file-list"></ul>
+            
+            <div class="ip-container" id="ipButton">
+                <span class="ip-tooltip" id="ipTooltip">IP : ...</span>
+            </div>
+            
+            <button class="theme-toggle" id="themeToggle">
+                <span class="icon">☀️</span>
+            </button>
         </div>
-        <ul id="project-list" class="project-list"></ul>
-
-
-        <div id="file-actions" class="file-actions">
-            <h3>Fichiers</h3>
-            <input type="text" id="filename" placeholder="Nom du fichier">
-            <select id="file-type">
-                <option value="py">Python</option>
-                <option value="c">C</option>
-            </select>
-            <button onclick="createFile()" id="create-file-btn">Nouveau fichier</button>
-            <button onclick="renameFile()" id="rename-file-btn">Renommer</button>
-            <button onclick="deleteFile()" id="delete-file-btn">Supprimer</button>
-        </div>
-        <ul id="file-list" class="file-list"></ul>
-        <div class="ip-container" id="ipButton">i
-            <span class="ip-tooltip" id="ipTooltip">IP : ...</span>
-        </div>
-        <button class="theme-toggle" id="themeToggle">
-            <span class="icon">☀️</span>
-        </button>
-    </div>
-    <div id="main-content">
-        <div id="editor-container">
-            <div id="editor"></div>
-        </div>
-        <div id="terminal">
-            <pre id="output"></pre>
-            <div id="terminal-actions">
-                <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
-                <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
+    
+        <!-- Contenu principal -->
+        <div id="main-content" class="mode mode-colab mode-exercise">
+            <div id="editor-container">
+                <div id="editor"></div>
+            </div>
+            <div id="terminal">
+                <pre id="output"></pre>
+                <div id="terminal-actions">
+                    <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
+                    <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
+                </div>
             </div>
         </div>
-    </div>
-    <div id="contextMenu" class="context-menu">
-        <ul>
-            <li onclick="handleMenuClick('create_file')">Create file</li>
-            <li onclick="handleMenuClick('rename_file')">Rename file</li>
-            <li onclick="handleMenuClick('delete_file')">Delete file</li>
-            <li onclick="handleMenuClick('create_folder')">Create folder </li>
-            <li onclick="handleMenuClick('delete_folder')">Delete folder </li>
-            
-        </ul>
-    </div>
-    <div id="save-status">Sauvegardé</div>
     
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/socketEvents.js') }}"></script>
+        <div id="profile-panel" class="profile-panel">
+            <div class="profile-header">
+                <h2>Profil Utilisateur</h2>
+                <button class="close-profile" onclick="toggleProfile()">×</button>
+            </div>
+            <div class="profile-content">
+            </div>
+        </div>
+    
+        <!-- Menu contextuel -->
+        <div id="contextMenu" class="context-menu hidden">
+            <ul>
+                <li onclick="handleMenuClick('create_file')">Create file</li>
+                <li onclick="handleMenuClick('rename_file')">Rename file</li>
+                <li onclick="handleMenuClick('delete_file')">Delete file</li>
+                <li onclick="handleMenuClick('create_folder')">Create folder</li>
+                <li onclick="handleMenuClick('delete_folder')">Delete folder</li>
+            </ul>
+        </div>
+    
+        <div id="save-status">Sauvegardé</div>
+    
+        <script>
+        function updateProjectVisibility() {
+            const projectActions = document.querySelector('.project-actions');
+            const projectInfo = document.querySelector('.project-info');
+            const isExercise = document.body.getAttribute('data-mode') === 'exercise';
 
+            if (projectActions) {
+                projectActions.style.display = isExercise ? 'none' : 'block';
+            }
+            if (projectInfo) {
+                projectInfo.style.display = isExercise ? 'none' : 'block';
+            }
+        }
+        function toggleProfile() {
+            const profilePanel = document.getElementById('profile-panel');
+            profilePanel.classList.toggle('active');
+        }
+
+        // Modifier la fonction switchMode pour enlever la partie profil
+        function switchMode(mode) {
+            document.body.setAttribute('data-mode', mode);
+            
+            const navLinks = document.querySelectorAll('nav ul li a');
+            navLinks.forEach(link => {
+                if (!link.closest('.user-profile-icon')) {  // Ignorer l'icône de profil
+                    link.classList.remove('mode-selected');
+                    if (link.textContent.toLowerCase().includes(mode.toLowerCase())) {
+                        link.classList.add('mode-selected');
+                    }
+                }
+            });
+            
+            updateProjectVisibility();
+            
+            const event = new CustomEvent('modeChanged', { detail: { mode } });
+            document.dispatchEvent(event);
+        }
+
+        // Initialiser le mode sélectionné au chargement de la page
+        document.addEventListener('DOMContentLoaded', () => {
+            const initialMode = document.body.getAttribute('data-mode') || 'colab';
+            switchMode(initialMode);
+        });
+        </script>
+    
+        <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+        <script src="{{ url_for('static', filename='js/socketEvents.js') }}"></script>
 </body>
 </html>

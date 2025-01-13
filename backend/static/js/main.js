@@ -4,6 +4,7 @@ editor.setTheme("ace/theme/clouds");
 let currentFile = '';
 let currentProject = '';
 let currentFolder ='';
+let currentMode = 'colab';
 let isReceivingUpdate = false;
 let localUserId = null;
 let saveTimeout = null;
@@ -37,7 +38,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function handleMenuClick(option) {
     let resultPrompt = null;
-
+    if (isExerciseMode()) {
+        return;
+    }
     if (option === 'create_file' || option === 'rename_file' || option === 'create_folder') {
         resultPrompt = prompt("Enter a name:");
         if (!resultPrompt) {
@@ -45,10 +48,10 @@ function handleMenuClick(option) {
             return; 
         }
     }
-
+    
     switch (option){
         case 'create_file':
-            createFile(resultPrompt);
+            createFile(resultPrompt);    
             break;
         case 'rename_file':
             renameFile();
@@ -62,9 +65,12 @@ function handleMenuClick(option) {
         case 'delete_folder':
             deleteFolder();
             break;
+
     }
 }
-
+function isExerciseMode() {
+    return document.body.getAttribute('data-mode') === 'exercise';
+}
 
 function fetchIpAddress() {
     fetch('/get-ip')
@@ -289,6 +295,11 @@ function selectProject() {
 }
 
 function geteditorSyntax(filename){
+    editor.setOptions({
+        enableBasicAutocompletion: true,   
+        enableSnippets: true,              
+        enableLiveAutocompletion: true     
+    });
     let editorSyntax = "";
     if (filename.endsWith(".py")) {
         editorSyntax = "python";
@@ -493,7 +504,14 @@ socket.on('code_output', function(data) {
 });
 
 socket.on('project_list', function(data) {
+    // Si nous sommes en mode exercice, ne rien faire
+    if (isExerciseMode()) {
+        return;
+    }
+
     const projectSelect = document.getElementById('project-select');
+    if (!projectSelect) return;
+
     projectSelect.innerHTML = '<option value="">Sélectionner un projet</option>';
     data.projects.forEach(project => {
         const option = document.createElement('option');
@@ -650,4 +668,78 @@ socket.on('update_user_list', (data) => {
 
 window.addEventListener('beforeunload', () => {
     socket.emit('user_disconnected', { user_id: localUserId });
+});
+
+socket.on('exercises_list', (exercises) => {
+    updateExercisesList(exercises);
+});
+
+socket.on('exercise_data', (exercise) => {
+    loadExerciseIntoEditor(exercise);
+});
+
+socket.on('submission_result', (result) => {
+    displaySubmissionResult(result);
+});
+
+socket.on('error', (error) => {
+    console.error('Server error:', error.message);
+});
+
+// editor.js
+function updateExercisesList(exercises) {
+    const exerciseList = document.getElementById('exercise-list');
+    exerciseList.innerHTML = '';
+    
+    exercises.forEach(exercise => {
+        const li = document.createElement('li');
+        li.className = 'exercise-item';
+        li.innerHTML = `
+            <h3>${exercise.name}</h3>
+            <p>${exercise.description}</p>
+            <button onclick="loadExercise('${exercise.id}')">Commencer</button>
+        `;
+        exerciseList.appendChild(li);
+    });
+}
+
+function loadExercise(exerciseId) {
+    socket.emit('get_exercise', { exercise_id: exerciseId });
+}
+
+function loadExerciseIntoEditor(exercise) {
+    // Mettre à jour l'éditeur avec le template de l'exercice
+    editor.setValue(exercise.template);
+    
+    // Mettre à jour la description de l'exercice
+    document.getElementById('exercise-description').innerHTML = `
+        <h2>${exercise.name}</h2>
+        <p>${exercise.description}</p>
+    `;
+    
+    // Activer le bouton de soumission
+    document.getElementById('submit-exercise').disabled = false;
+}
+
+function submitExercise() {
+    const code = editor.getValue();
+    const exerciseId = currentExercise.id; // Vous devrez gérer cette variable
+    socket.emit('submit_exercise', {
+        exercise_id: exerciseId,
+        code: code
+    });
+}
+
+function displaySubmissionResult(result) {
+    const resultDiv = document.getElementById('submission-result');
+    resultDiv.innerHTML = `
+        <div class="result ${result.status}">
+            ${result.message}
+        </div>
+    `;
+}
+
+// Initialiser la liste des exercices au chargement
+document.addEventListener('DOMContentLoaded', () => {
+    socket.emit('get_exercises');
 });
