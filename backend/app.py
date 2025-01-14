@@ -1,19 +1,69 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_socketio import SocketIO, emit
 import socket
 from config import Config
 from services.cursor_service import CursorService
+from services.user_service import UserService
 
 app = Flask(__name__)
 socketio = SocketIO(app, ping_timeout=10)
 cursor_service = CursorService()
+user_service = UserService()
 
 Config.init_app()
 
+# Route pour la page d'accueil
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# Route pour la page de formulaire d'inscription
+@app.route('/register')
+def register_page():
+    return render_template('register.html')
+
+# Route pour gérer l'inscription
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.form
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    confirm_password = data.get('confirm_password')
+
+    if not username or not email or not password:
+        return jsonify({"error": "All fields are required"}), 400
+    if password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+
+    try:
+        user_service.create_user(username, email, password)
+        return redirect(url_for('login_page'))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Route pour la page de connexion
+@app.route('/login')
+def login_page():
+    return render_template('login.html')
+
+# Route pour gérer la connexion
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.form
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = user_service.verify_password(email, password)
+    if user:
+        return redirect(url_for('index'))
+    else:
+        return jsonify({"error": "Invalid email or password"}), 401
+
+# Route pour récupérer l'adresse IP
 @app.route('/get-ip', methods=['GET'])
 def get_ip():
     hostname = socket.gethostname()

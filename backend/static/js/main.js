@@ -723,7 +723,7 @@ function loadExerciseIntoEditor(exercise) {
 
 function submitExercise() {
     const code = editor.getValue();
-    const exerciseId = currentExercise.id; // Vous devrez gérer cette variable
+    const exerciseId = currentExercise.id; 
     socket.emit('submit_exercise', {
         exercise_id: exerciseId,
         code: code

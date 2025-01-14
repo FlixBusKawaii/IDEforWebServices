@@ -14,5 +14,20 @@ services:
       - FLASK_ENV=development
       - FLASK_APP=/app/backend/app.py
       - PROJECTS_DIR=/app/ide_projects
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB_NAME=my_database
+    depends_on:
+      - mongodb
     privileged: true
-    user: "root"  
+    user: "root"
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+volumes:
+  mongodb_data:

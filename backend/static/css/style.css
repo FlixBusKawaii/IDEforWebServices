@@ -1,51 +1,70 @@
+/* Global styles */
 body {
     display: flex;
     height: 100vh;
     margin: 0;
     font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
 }
 
+/* Sidebar */
 #sidebar {
     width: 250px;
     padding: 10px;
     background: #f0f0f0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid;
+    border-right: 1px solid #ddd;
 }
 
 button {
-    margin: 2px;
-    padding: 5px 10px;
+    margin: 5px 0;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0056b3;
 }
 
 input,
 select {
-    margin-bottom: 5px;
-    padding: 5px;
+    margin-bottom: 10px;
+    padding: 10px;
     width: 100%;
     box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
-/* Style pour le header */
-header {
+input:focus {
+    border-color: #007bff;
+    outline: none;
+}
 
+/* Header */
+header {
     background-color: #333;
     color: #fff;
-    height: 2%;
     padding: 10px 20px;
     position: fixed;
     top: 0;
     width: 100%;
     z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 header nav ul {
     list-style: none;
-    margin: 0 3% 0 0;
+    margin: 0;
     padding: 0;
     display: flex;
-    justify-content: flex-end;
 }
 
 header nav ul li {
@@ -56,18 +75,15 @@ header nav ul li a {
     color: #fff;
     text-decoration: none;
     font-weight: bold;
+    padding: 5px 10px;
+    border-radius: 4px;
 }
 
 header nav ul li a:hover {
-    text-decoration: underline;
+    background-color: #444;
 }
 
-/* Style pour les contenus cachés */
-.hidden {
-    display: none;
-}
-
-/* Style pour le contenu du profil utilisateur */
+/* Profile content */
 #profile-content {
     padding: 20px;
     background-color: #f9f9f9;
@@ -76,164 +92,75 @@ header nav ul li a:hover {
     border-radius: 8px;
 }
 
-#profile-content h2 {
-    margin-top: 0;
+/* Main content layout */
+#sidebar,
+#main-content {
+    margin-top: 60px; /* Adjusted for fixed header */
 }
 
-/* Style pour la sidebar et le contenu principal */
-#sidebar, #main-content {
-    margin-top: 2%; 
-}
-.mode {
-    display: none;
-}
-
-/* Classes spécifiques aux modes */
-body[data-mode="colab"] .mode-colab,
-body[data-mode="exercise"] .mode-exercise,
-body[data-mode="profile"] .mode-profile {
-    display: block;
-}
-
-/* Classes pour le mode exercice */
-body[data-mode="exercise"] .hidden-in-exercise {
-    display: none !important;
-}
-
-/* Style de base pour la mise en page */
 #main-content {
     display: flex;
-    flex-direction: row;
-}
-
-#sidebar {
-    width: 250px;
-    padding: 1rem;
-}
-
-#editor-container {
     flex: 1;
-}
-
-/* Style pour le mode sélectionné */
-.mode-selected {
-    color: #007bff;
-    font-weight: bold;
-    position: relative;
-}
-
-/* Ligne en dessous du mode sélectionné */
-.mode-selected::after {
-    content: '';
-    position: absolute;
-    bottom: -3px;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: #007bff;
-    transition: width 0.3s ease;
-}
-
-/* Effet hover sur les liens non sélectionnés */
-nav ul li a:hover:not(.mode-selected) {
-    background-color: #f0f0f0;
-}
-.user-profile-icon {
-    margin-left: auto;
-}
-
-.user-profile-icon svg {
-    width: 24px;
-    height: 24px;
-    vertical-align: middle;
-}
-
-.profile-panel {
-    position: fixed;
-    right: -300px;
-    top: 0;
-    width: 300px;
-    height: 100vh;
-    background: white;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
-    transition: right 0.3s ease;
-    z-index: 1000;
-}
-
-.profile-panel.active {
-    right: 0;
-}
-
-.profile-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid #eee;
-}
-
-.close-profile {
-    border: none;
-    background: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-}
-
-.profile-content {
-    padding: 1rem;
-}
-
-.mode-exercise {
-    display: none;
-}
-
-body[data-mode="exercise"] .mode-exercise {
-    display: block;
-}
-
-#exercise-panel {
+    flex-direction: column;
     padding: 20px;
 }
 
-.exercise-item {
-    border: 1px solid #ddd;
-    margin: 10px 0;
-    padding: 15px;
-    border-radius: 5px;
+/* Registration Form */
+form {
+    background-color: #fff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    margin: auto;
 }
 
-#exercise-description {
+form h1 {
+    text-align: center;
+    color: #333;
     margin-bottom: 20px;
-    padding: 15px;
-    background: #f5f5f5;
-    border-radius: 5px;
 }
 
-#exercise-actions {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
+form label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #555;
 }
 
-#submission-result {
-    margin-top: 15px;
-}
-
-.result {
+form input {
+    margin-bottom: 15px;
     padding: 10px;
+    border: 1px solid #ccc;
     border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 14px;
+    width: 100%;
 }
 
-.result.success {
-    background-color: #d4edda;
-    color: #155724;
+form button {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
 }
 
-.result.error {
-    background-color: #f8d7da;
-    color: #721c24;
+form button:hover {
+    background-color: #0056b3;
 }
 
-.hidden {
-    display: none;
+/* Responsive Design */
+@media (max-width: 768px) {
+    header nav ul li {
+        margin-left: 10px;
+    }
+
+    form {
+        padding: 15px 20px;
+    }
 }
