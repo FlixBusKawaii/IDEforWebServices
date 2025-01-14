@@ -413,7 +413,7 @@ function updateCursorPosition(userId, position) {
 }
 
 const socket = io();
-const username = localStorage.getItem('username') || prompt('Entrez votre nom:');
+const username = localStorage.getItem('username');
 localStorage.setItem('username', username);
 
 function setUserCookie(username, user_id) {
@@ -444,15 +444,16 @@ function getUserCookie() {
     return null;
 }
 socket.on('connect', () => {
-    localUserId = socket.id;
-    if(!getUserCookie()){
-        uname = prompt("Entrez votre nom d'utilisateur");
-        setUserCookie(uname,localUserId);
+    const userCookie = getUserCookie();
+    if (userCookie) {
+        socket.emit('user_connected', { user_id: userCookie.user_id, username: userCookie.username });
+    } else {
+        if (username) {
+            const userId = socket.id;
+            setUserCookie(username, userId);
+            socket.emit('user_connected', { user_id: userId, username: username });
+        }
     }
-    let userData = getUserCookie();
-    console.log(userData);
-    localUserId = userData["user_id"];
-    socket.emit('user_connected', { user_id: userData["user_id"], username: userData["username"]});
 });
 
 socket.on('connect_error', (error) => {

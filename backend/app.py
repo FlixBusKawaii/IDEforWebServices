@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, make_response, json
 from flask_socketio import SocketIO, emit
 import socket
 from config import Config
@@ -50,7 +50,17 @@ def login_page():
 # Route pour gérer la connexion
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.form
+    # Essayez de récupérer les données JSON
+    data = request.get_json(silent=True)  # `silent=True` empêche Flask de lever une exception si ce n'est pas JSON
+    
+    # Si les données JSON sont absentes, essayez de lire les données du formulaire
+    if not data:
+        data = request.form
+    
+    # Vérifiez si les données sont disponibles
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
     email = data.get('email')
     password = data.get('password')
 
@@ -59,9 +69,16 @@ def login():
 
     user = user_service.verify_password(email, password)
     if user:
-        return redirect(url_for('index'))
+        response = make_response(redirect(url_for('index')))
+        response.set_cookie('user_data', json.dumps({
+            "username": user["username"],
+            "user_id": str(user["_id"])
+        }), max_age=30 * 24 * 60 * 60, httponly=True)
+        return response
     else:
         return jsonify({"error": "Invalid email or password"}), 401
+
+
 
 # Route pour récupérer l'adresse IP
 @app.route('/get-ip', methods=['GET'])
