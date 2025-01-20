@@ -1,4 +1,4 @@
-const editor = ace.edit("editor");
+
 editor.setTheme("ace/theme/clouds");
 
 let currentFile = '';
@@ -358,7 +358,7 @@ function updateUIState() {
     createFileBtn.disabled = !projectSelected;
     renameFileBtn.disabled = !projectSelected || !fileSelected;
     deleteFileBtn.disabled = !projectSelected || !fileSelected;
-    executeBtn.disabled = !projectSelected || !fileSelected;
+    // executeBtn.disabled = !projectSelected || !fileSelected;
     editor.setReadOnly(!projectSelected || !fileSelected);
 }
 
@@ -412,7 +412,7 @@ function updateCursorPosition(userId, position) {
     label.style.top = `${pixelPosition.pageY + scrollTop - editorRect.top - 5}px`;
 }
 
-const socket = io();
+
 const username = localStorage.getItem('username');
 localStorage.setItem('username', username);
 
@@ -671,76 +671,70 @@ window.addEventListener('beforeunload', () => {
     socket.emit('user_disconnected', { user_id: localUserId });
 });
 
-socket.on('exercises_list', (exercises) => {
-    updateExercisesList(exercises);
-});
+// socket.on('exercises_list', (exercises) => {
+//     updateExercisesList(exercises);
+// });
 
-socket.on('exercise_data', (exercise) => {
-    loadExerciseIntoEditor(exercise);
-});
+// socket.on('exercise_data', (exercise) => {
+//     loadExerciseIntoEditor(exercise);
+// });
 
-socket.on('submission_result', (result) => {
-    displaySubmissionResult(result);
-});
+// socket.on('submission_result', (result) => {
+//     displaySubmissionResult(result);
+// });
 
-socket.on('error', (error) => {
-    console.error('Server error:', error.message);
-});
+// socket.on('error', (error) => {
+//     console.error('Server error:', error.message);
+// });
 
-// editor.js
-function updateExercisesList(exercises) {
-    const exerciseList = document.getElementById('exercise-list');
-    exerciseList.innerHTML = '';
+// // function updateExercisesList(exercises) {
+// //     const exerciseList = document.getElementById('exercise-list');
+// //     exerciseList.innerHTML = '';
     
-    exercises.forEach(exercise => {
-        const li = document.createElement('li');
-        li.className = 'exercise-item';
-        li.innerHTML = `
-            <h3>${exercise.name}</h3>
-            <p>${exercise.description}</p>
-            <button onclick="loadExercise('${exercise.id}')">Commencer</button>
-        `;
-        exerciseList.appendChild(li);
-    });
-}
+// //     exercises.forEach(exercise => {
+// //         const li = document.createElement('li');
+// //         li.className = 'exercise-item';
+// //         li.innerHTML = `
+// //             <h3>${exercise.name}</h3>
+// //             <p>${exercise.description}</p>
+// //             <button onclick="loadExercise('${exercise.id}')">Commencer</button>
+// //         `;
+// //         exerciseList.appendChild(li);
+// //     });
+// // }
 
-function loadExercise(exerciseId) {
-    socket.emit('get_exercise', { exercise_id: exerciseId });
-}
+// // function loadExercise(exerciseId) {
+// //     socket.emit('get_exercise', { exercise_id: exerciseId });
+// // }
 
-function loadExerciseIntoEditor(exercise) {
-    // Mettre à jour l'éditeur avec le template de l'exercice
-    editor.setValue(exercise.template);
+// // function loadExerciseIntoEditor(exercise) {
+// //     editor.setValue(exercise.template);
     
-    // Mettre à jour la description de l'exercice
-    document.getElementById('exercise-description').innerHTML = `
-        <h2>${exercise.name}</h2>
-        <p>${exercise.description}</p>
-    `;
+// //     document.getElementById('exercise-description').innerHTML = `<h2>${exercise.name}</h2><p>${exercise.description}</p>`;
     
-    // Activer le bouton de soumission
-    document.getElementById('submit-exercise').disabled = false;
-}
+// //     // Activer le bouton de soumission
+// //     document.getElementById('submit-exercise').disabled = false;
+// // }
 
-function submitExercise() {
-    const code = editor.getValue();
-    const exerciseId = currentExercise.id; 
-    socket.emit('submit_exercise', {
-        exercise_id: exerciseId,
-        code: code
-    });
-}
+// // function submitExercise() {
+// //     const code = editor.getValue();
+// //     const exerciseId = currentExercise.id; 
+// //     socket.emit('submit_exercise', {
+// //         exercise_id: exerciseId,
+// //         code: code
+// //     });
+// // }
 
-function displaySubmissionResult(result) {
-    const resultDiv = document.getElementById('submission-result');
-    resultDiv.innerHTML = `
-        <div class="result ${result.status}">
-            ${result.message}
-        </div>
-    `;
-}
+// function displaySubmissionResult(result) {
+//     const resultDiv = document.getElementById('submission-result');
+//     resultDiv.innerHTML = `
+//         <div class="result ${result.status}">
+//             ${result.message}
+//         </div>
+//     `;
+// }
 
-// Initialiser la liste des exercices au chargement
-document.addEventListener('DOMContentLoaded', () => {
-    socket.emit('get_exercises');
-});
+// // Initialiser la liste des exercices au chargement
+// document.addEventListener('DOMContentLoaded', () => {
+//     socket.emit('get_exercises');
+// });

@@ -14,6 +14,7 @@
             <ul>
                 <li><a href="#" onclick="switchMode('colab')">Mode Colab</a></li>
                 <li><a href="#" onclick="switchMode('exercise')">Mode Exercice</a></li>
+                <li><a href="#" onclick="showLeaderboard()">Leaderboard</a></li> 
                 <li class="user-profile-icon">
                     <a href="#" onclick="toggleProfile()">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -42,13 +43,13 @@
                 </ul>
             </nav>
         </header>
-        
+
         <!-- Sidebar -->
         <div id="sidebar" class="mode mode-colab mode-exercise">
             <div id="project-info" class="project-info">
                 <h4>Projet actuel: <span id="current-project-name"></span></h4>
             </div>
-            
+
             <!-- Section visible uniquement en mode colab -->
             <div class="mode-colab">
                 <div class="user-actions">
@@ -65,9 +66,12 @@
                     </select>
                 </div>
             </div>
-            
+            <div id="exercise-list" class="exercise-list hidden">
+                <h3>Liste des Exercices</h3>
+                <ul id="exercise-items"></ul>
+            </div>
             <ul id="project-list" class="project-list"></ul>
-            
+
             <div id="file-actions" class="file-actions">
                 <h3>Fichiers</h3>
                 <input type="text" id="filename" placeholder="Nom du fichier">
@@ -80,18 +84,18 @@
                 <button onclick="renameFile()" class="hidden-in-exercise">Renommer</button>
                 <button onclick="deleteFile()" class="hidden-in-exercise">Supprimer</button>
             </div>
-            
+
             <ul id="file-list" class="file-list"></ul>
-            
+
             <div class="ip-container" id="ipButton">
                 <span class="ip-tooltip" id="ipTooltip">IP : ...</span>
             </div>
-            
+
             <button class="theme-toggle" id="themeToggle">
                 <span class="icon">☀️</span>
             </button>
         </div>
-    
+
         <!-- Contenu principal -->
         <div id="main-content" class="mode mode-colab mode-exercise">
             <div id="editor-container">
@@ -100,21 +104,67 @@
             <div id="terminal">
                 <pre id="output"></pre>
                 <div id="terminal-actions">
-                    <button onclick="executeCode()" id="execute-btn" disabled>Exécuter</button>
+                    <button onclick="executeCode()" id="execute-btn">Exécuter</button>
+                    <button onclick="submitCode()" id="execute-btn">Envoyer</button>
                     <button onclick="clearTerminal()" id="clear-terminal-btn">Effacer</button>
                 </div>
             </div>
         </div>
-    
+
         <div id="profile-panel" class="profile-panel">
             <div class="profile-header">
                 <h2>Profil Utilisateur</h2>
                 <button class="close-profile" onclick="toggleProfile()">×</button>
             </div>
             <div class="profile-content">
+                <div class="profile-section">
+                    <h3>Informations Générales</h3>
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <h4>Nom d'utilisateur</h4>
+                            <p id="profile-username">...</p>
+                        </div>
+                        <div class="stat-box">
+                            <h4>Email</h4>
+                            <p id="profile-email">...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h3>Statistiques</h3>
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <h4>Exercices Complétés</h4>
+                            <p id="completed-exercises">0</p>
+                        </div>
+                        <div class="stat-box">
+                            <h4>Moyenne Générale</h4>
+                            <p id="average-score">0%</p>
+                        </div>
+                        <div class="stat-box">
+                            <h4>Temps Total</h4>
+                            <p id="total-time">0h</p>
+                        </div>
+                        <div class="stat-box">
+                            <h4>Dernière Activité</h4>
+                            <p id="last-activity">-</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-section">
+                    <h3>Derniers Exercices</h3>
+                    <ul id="recent-exercises" class="exercise-list">
+                        <!-- Les exercices seront ajoutés dynamiquement ici -->
+                    </ul>
+                </div>
+                <div class="profile-section">
+                    <button id="logout-button" onclick="logoutUser()">Déconnexion</button>
+                </div>
             </div>
         </div>
-    
+
         <!-- Menu contextuel -->
         <div id="contextMenu" class="context-menu hidden">
             <ul>
@@ -125,10 +175,15 @@
                 <li onclick="handleMenuClick('delete_folder')">Delete folder</li>
             </ul>
         </div>
-    
+
         <div id="save-status">Sauvegardé</div>
-    
+
+        
+
         <script>
+        const editor = ace.edit("editor");
+        const socket = io();
+
         function updateProjectVisibility() {
             const projectActions = document.querySelector('.project-actions');
             const projectInfo = document.querySelector('.project-info');
@@ -141,15 +196,140 @@
                 projectInfo.style.display = isExercise ? 'none' : 'block';
             }
         }
+
+        async function loadUserProfile() {
+            try {
+                // Charger les données utilisateur
+                const userResponse = await fetch('/api/user/profile');
+                const userData = await userResponse.json();
+
+                // Charger les statistiques
+                const statsResponse = await fetch('/api/user/stats');
+                const statsData = await statsResponse.json();
+
+                // Mettre à jour les informations générales
+                document.getElementById('profile-username').textContent = userData.username;
+                document.getElementById('profile-email').textContent = userData.email;
+
+                // Mettre à jour les statistiques
+                if (statsData.general_stats) {
+                    document.getElementById('completed-exercises').textContent =
+                        statsData.general_stats.completed_exercises;
+                    document.getElementById('average-score').textContent =
+                        `${statsData.general_stats.average_score.toFixed(1)}%`;
+                    document.getElementById('total-time').textContent =
+                        `${Math.round(statsData.general_stats.total_time_spent / 60)}h`;
+                }
+
+                // Charger les exercices récents
+                const exercisesResponse = await fetch('/api/user/exercises?limit=5');
+                const exercisesData = await exercisesResponse.json();
+
+                const exercisesList = document.getElementById('recent-exercises');
+                exercisesList.innerHTML = '';  // Effacer la liste existante
+
+                exercisesData.forEach(exercise => {
+                    const li = document.createElement('li');
+                    li.className = 'exercise-item';
+                    const date = new Date(exercise.date).toLocaleDateString();
+                    li.innerHTML = `
+                        <span>${exercise.exercise_name}</span>
+                        <span class="exercise-score">${exercise.score}%</span>
+                    `;
+                    exercisesList.appendChild(li);
+                });
+
+            } catch (error) {
+                console.error('Erreur lors du chargement du profil:', error);
+            }
+        }
+
+        function logoutUser() {
+            window.location.href = '/logout';
+        }
+    
         function toggleProfile() {
             const profilePanel = document.getElementById('profile-panel');
+            const isOpening = !profilePanel.classList.contains('active');
+
             profilePanel.classList.toggle('active');
+
+            if (isOpening) {
+                loadUserProfile();  // Charger les données lors de l'ouverture
+            }
         }
+
+        function fetchExercises() {
+            console.log('Fetching exercises...');
+            socket.emit('get_exercises');
+        }
+
+        socket.on('exercises_list', function(exercises) {
+            console.log('Received exercises:', exercises);
+            const exerciseList = document.getElementById('exercise-items');
+            //exerciseList.innerHTML = '';  // Effacer la liste existante
+
+            exercises.forEach(exercise => {
+                const li = document.createElement('li');
+                li.className = 'exercise-item';
+                li.innerHTML = `
+                    <span>${exercise.name}</span>
+                    <button onclick="loadExercise('${exercise.id}')">Charger</button>
+                `;
+                exerciseList.appendChild(li);
+            });
+        });
+        function loadExercise(exerciseId) {
+            console.log(exerciseId);
+            socket.emit('get_exercise', { exercise_id: exerciseId });
+            
+            // Ajouter l'ID à tous les boutons d'exercice
+            document.querySelectorAll('.exercise-item button').forEach(button => {
+                button.setAttribute('data-exercise-id', exerciseId);
+            });
+        }
+        socket.on('exercise_data', function(exercise) {
+            console.log(exercise)
+            let description = exercise.description;
+            currentFile='exercice.py';
+            currentProject= 'currentProject'
+            currentFolder='Exercice_file'
+            editor.session.setMode("ace/mode/python")
+            editor.setReadOnly(false);
+
+            editor.setValue("# "+description +"\n"+ exercise.template, -1);
+        });
+        function submitCode() {
+            const code = editor.getValue();
+            const currentExerciseId = document.querySelector('.exercise-item button')?.getAttribute('data-exercise-id');
+            
+            if (!currentExerciseId) {
+                console.error('Aucun exercice sélectionné');
+                return;
+            }
+
+            socket.emit('submit_exercise', {
+                exercise_id: currentExerciseId,
+                code: code,
+                filename: currentFile  // Variable déjà définie dans votre code existant
+            });
+        }
+
+        // Ajoutez aussi l'écouteur pour recevoir le résultat
+        socket.on('submission_result', function(result) {
+            if (result.success) {
+                console.log('Exercice soumis avec succès:', result);
+                // Vous pouvez ajouter ici un message de succès dans l'interface
+            } else {
+                console.error('Erreur lors de la soumission:', result.message);
+                // Vous pouvez ajouter ici un message d'erreur dans l'interface
+            }
+        });
 
         // Modifier la fonction switchMode pour enlever la partie profil
         function switchMode(mode) {
             document.body.setAttribute('data-mode', mode);
-            
+
             const navLinks = document.querySelectorAll('nav ul li a');
             navLinks.forEach(link => {
                 if (!link.closest('.user-profile-icon')) {  // Ignorer l'icône de profil
@@ -159,22 +339,44 @@
                     }
                 }
             });
-            
+
             updateProjectVisibility();
-            
+
             const event = new CustomEvent('modeChanged', { detail: { mode } });
             document.dispatchEvent(event);
-        }
 
-        // Initialiser le mode sélectionné au chargement de la page
+            if (mode === 'exercise') {
+                fetchExercises();
+                const exerciseList = document.getElementById('exercise-list');
+                exerciseList.classList.remove('hidden'); // Show list when entering exercise mode
+            } else {
+                const exerciseList = document.getElementById('exercise-list');
+                exerciseList.classList.add('hidden'); // Hide list when leaving exercise mode
+            }
+        }
+        function showLeaderboard() {
+                window.location.href = '/leaderboard'; 
+            }
+
         document.addEventListener('DOMContentLoaded', () => {
             const initialMode = document.body.getAttribute('data-mode') || 'colab';
             switchMode(initialMode);
         });
+
+        socket.on('submission_result', function(result) {
+            const terminal = document.getElementById('output');
+            if (result.success) {
+                terminal.innerHTML += '\n--- Résultat de la soumission ---\n';
+                terminal.innerHTML += `Score: ${result.score}\n`;
+                terminal.innerHTML += `Message: ${result.message}\n`;
+            } else {
+                terminal.innerHTML += '\n--- Erreur de soumission ---\n';
+                terminal.innerHTML += result.message + '\n';
+            }
+            terminal.scrollTop = terminal.scrollHeight;
+        });
         </script>
-    
+
         <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/socketEvents.js') }}"></script>
 </body>
 </html>

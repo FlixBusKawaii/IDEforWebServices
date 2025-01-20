@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/leaderboard.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Utilisateurs</title>
+</head>
+<body>
+    <div class="users-container">
+        <header class="page-header">
+            <h1 class="page-title">Tableau de bord des utilisateurs</h1>
+        </header>
+
+        <div class="users-grid">
+            {% for user in users %}
+            <div class="user-card" onclick="showUserStats('{{ user.id }}')">
+                <div class="user-card-header">
+                    <h2 class="user-name">{{ user.username }}</h2>
+                    <p class="user-email">{{ user.email }}</p>
+                    <span class="experience-badge">{{ user.experience_level }}</span>
+                </div>
+
+                <div class="user-card-content">
+                    <div class="stats-section">
+                        <h3 class="stats-title">Profil Professionnel</h3>
+                        <p class="user-role">{{ user.current_role }}</p>
+                        <p class="user-experience">{{ user.years_experience }} ans d'expérience</p>
+
+                        <div class="skills-preview">
+                            {% if user.skills %}
+                                {% for domain, domain_data in user.skills.items() %}
+                                    {% if loop.index <= 3 and domain_data.skills %}
+                                        {% set skill = domain_data.skills[0] %}
+                                        <span class="skill-badge">{{ skill.name }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
+                        <div class="availability-status">
+                            <span class="status-indicator {{ user.availability_for_collaboration|lower }}"></span>
+                            {{ user.availability_for_collaboration }}
+                        </div>
+                    </div>
+
+                    <div class="stats-section">
+                        <h3 class="stats-title">Statistiques générales</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">{{ user.stats.speed }} / 5</div>
+                                <div class="stat-label">Rapidité</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">{{ user.stats.best_practices }} / 5</div>
+                                <div class="stat-label">Bonnes pratiques</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Profil détaillé</h2>
+                <button class="close-button" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+    async function showUserStats(userId) {
+        try {
+            const [userResponse, collaboratorsResponse] = await Promise.all([
+                fetch(`/api/users/${userId}`),
+                fetch(`/api/users/${userId}/collaborators?algorithm=skills`)
+            ]);
+
+            const userData = await userResponse.json();
+            const collaboratorsData = await collaboratorsResponse.json();
+
+            if (!userResponse.ok || !collaboratorsResponse.ok) {
+                throw new Error('Une erreur est survenue');
+            }
+
+            // Déboggage pour voir la structure exacte des données
+            console.log('userData:', userData);
+            console.log('collaboratorsData:', collaboratorsData);
+
+            const modalContent = document.getElementById('modalContent');
+            modalContent.innerHTML = `
+                <div class="profile-details">
+                    <div class="user-info-header">
+                        <div class="user-primary-info">
+                            <h3>${userData.username || 'Anonyme'}</h3>
+                            <span class="experience-badge large">${userData.experience_level || 'Non spécifié'}</span>
+                        </div>
+                        <div class="user-secondary-info">
+                            <p>${userData.email || 'Email non spécifié'}</p>
+                            <p class="user-role">${userData.current_role || 'Rôle non spécifié'}</p>
+                            <p>${userData.years_experience || 0} ans d'expérience</p>
+                            <p>
+                                <span class="availability-dot ${(userData.availability_for_collaboration || '').toLowerCase() || 'unavailable'}"></span>
+                                ${userData.availability_for_collaboration || 'Non spécifié'}
+                            </p>
+                            <p>Horaires préférés: ${userData.preferred_working_hours || 'Non spécifié'}</p>
+                        </div>
+                    </div>
+
+                    <div class="skills-section">
+                        <h3>Compétences</h3>
+                        ${Object.entries(userData.skills).map(([domain, domainData]) => `
+                            <div class="skill-domain">
+                                <h4>${domain.charAt(0).toUpperCase() + domain.slice(1)}</h4>
+                                <div class="skills-grid">
+                                    ${domainData.skills.map(skill => `
+                                        <div class="skill-item">
+                                            <div class="skill-header">
+                                                <span class="skill-name">${skill.name}</span>
+                                                <span class="skill-years">${skill.years_experience} ans</span>
+                                            </div>
+                                            <div class="skill-level-bar">
+                                                <div class="skill-level-fill" style="width: ${skill.level * 20}%"></div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+
+                    <div class="stats-section">
+                        <h3>Statistiques</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">${userData.stats.speed} / 5</div>
+                                <div class="stat-label">Rapidité</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">${userData.stats.best_practices} / 5</div>
+                                <div class="stat-label">Bonnes pratiques</div>
+                            </div>
+                        </div>
+                    </div>
+
+                   <div class="collaborators-section">
+                    <h3>Collaborateurs potentiels</h3>
+                    
+                    <div class="collaborators-grid" id="collaboratorsGrid">
+                        ${Array.isArray(collaboratorsData) ? collaboratorsData.map(collaborator => {
+                            // Vérifier si collaborator.user existe
+                            const user = collaborator.user || collaborator || {};
+                            const availability = (user.availability_for_collaboration || '').toLowerCase() || 'unavailable';
+                            
+                            return `
+                                <div class="collaborator-card" onclick="showUserStats('${user._id || ''}')">
+                                    <div class="compatibility-score">
+                                        <div class="score-circle" style="--score: ${collaborator.compatibility_score || 0}%">
+                                            <span>${Math.round(collaborator.compatibility_score || 0)}%</span>
+                                        </div>
+                                    </div>
+                                    <h4>${user.username || 'Anonyme'}</h4>
+                                    <span class="experience-badge">${user.experience_level || 'Non spécifié'}</span>
+                                    <div class="compatibility-details">
+                                        <div class="compatibility-item">
+                                            <span class="label">Compétences:</span>
+                                            <span class="value">${Math.round(collaborator.skill_score || 0)}%</span>
+                                        </div>
+                                        <div class="compatibility-item">
+                                            <span class="label">Disponibilité:</span>
+                                            <span class="value">${Math.round(collaborator.availability_score || 0)}%</span>
+                                        </div>
+                                        <div class="compatibility-item">
+                                            <span class="label">Expérience:</span>
+                                            <span class="value">${Math.round(collaborator.experience_score || 0)}%</span>
+                                        </div>
+                                    </div>
+                                    <div class="complementary-domains">
+                                        ${user.skills ? Object.keys(user.skills).map(domain =>
+                                            `<span class="domain-badge">${domain}</span>`
+                                        ).join('') : ''}
+                                    </div>
+                                    <div class="collaborator-availability">
+                                        <span class="availability-dot ${availability}"></span>
+                                        ${user.availability_for_collaboration || 'Non spécifié'}
+                                    </div>
+                                    <p class="working-hours">
+                                        <i class="far fa-clock"></i>
+                                        ${user.preferred_working_hours || 'Non spécifié'}
+                                    </p>
+                                </div>
+                            `;
+                        }).join('') : 'Aucun collaborateur trouvé'}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('statsModal').classList.add('active');
+    } catch (error) {
+        console.error('Erreur détaillée:', error);
+        alert(error.message);
+    }
+}
+
+    async function updateCollaborators(userId) {
+        try {
+            const algorithm = document.getElementById('algorithm').value;
+            const response = await fetch(`/api/users/${userId}/collaborators?algorithm=${algorithm}`);
+            const collaboratorsData = await response.json();
+
+            if (!response.ok) {
+                throw new Error('Une erreur est survenue');
+            }
+
+            if (!collaboratorsData || !Array.isArray(collaboratorsData)) {
+                throw new Error('Les données des collaborateurs sont invalides');
+            }
+
+            const collaboratorsGrid = document.getElementById('collaboratorsGrid');
+            collaboratorsGrid.innerHTML = collaboratorsData.map(collaborator => `
+                <div class="collaborator-card" onclick="showUserStats('${collaborator._id}')">
+                    <h4>${collaborator.username}</h4>
+                    <span class="experience-badge">${collaborator.experience_level}</span>
+                    <div class="complementary-domains">
+                        ${collaborator.skills ? Object.keys(collaborator.skills).map(domain =>
+                            `<span class="domain-badge">${domain}</span>`
+                        ).join('') : ''}
+                    </div>
+                    <div class="collaborator-availability">
+                        <span class="availability-dot ${collaborator.availability_for_collaboration.toLowerCase()}"></span>
+                        ${collaborator.availability_for_collaboration}
+                    </div>
+                    <p class="working-hours">
+                        <i class="far fa-clock"></i>
+                        ${collaborator.preferred_working_hours}
+                    </p>
+                </div>
+            `).join('');
+        } catch (error) {
+            alert(error.message);
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('statsModal').classList.remove('active');
+    }
+
+    document.getElementById('statsModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,50 +1,71 @@
-# services/exercise_service.py
-from config import Config
-import os
 import json
+import os
 from typing import Dict, Any, List
 
 class ExerciseService:
-    def __init__(self, file_service, execution_service):
-        self.file_service = file_service
+    def __init__(self, execution_service, exercises_file_path: str):
+        
         self.execution_service = execution_service
-        self.exercises_dir = Config.EXERCISES_DIR
+        self.exercises_file_path = exercises_file_path
+        self.exercises_data = self._load_exercises_data()
+
+    def _load_exercises_data(self) -> Dict:
+        """Charge les données des exercices depuis le fichier JSON"""
+        try:
+            if not os.path.exists(self.exercises_file_path):
+                raise FileNotFoundError(f"Exercises file not found at: {self.exercises_file_path}")
+                
+            with open(self.exercises_file_path, 'r', encoding='utf-8') as file:
+                return json.load(file)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON format in exercises file: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Error loading exercises data: {str(e)}")
 
     def get_all_exercises(self) -> List[Dict]:
         """Récupère la liste de tous les exercices disponibles"""
-        exercises = []
-        for filename in os.listdir(self.exercises_dir):
-            if filename.endswith('.json'):
-                exercise = self.load_exercise(filename[:-5])
-                exercises.append({
-                    'id': exercise['id'],
-                    'name': exercise['name'],
-                    'description': exercise['description'],
-                    'difficulty': exercise.get('difficulty', 'Medium'),
-                    'category': exercise.get('category', 'General')
-                })
-        return exercises
+        return [{
+            'id': exercise['id'],
+            'name': exercise['name'],
+            'description': exercise['description'],
+            'template': exercise['template']
+        } for exercise in self.exercises_data['exercises']]
 
     def load_exercise(self, exercise_id: str) -> Dict:
         """Charge les détails d'un exercice spécifique"""
-        exercise_path = os.path.join(self.exercises_dir, f"{exercise_id}.json")
-        try:
-            content = self.file_service.load_file(exercise_path)
-            exercise_data = json.loads(content)
-            # Ne pas envoyer les tests au client
-            exercise_data['tests'] = [] if 'tests' in exercise_data else None
-            return exercise_data
-        except Exception as e:
-            raise ValueError(f"Failed to load exercise {exercise_id}: {str(e)}")
+        exercise = next(
+            (ex for ex in self.exercises_data['exercises'] if ex['id'] == exercise_id),
+            None
+        )
+        if not exercise:
+            raise ValueError(f"Exercise {exercise_id} not found")
+        # print("exercices : ", exercise)
+        
+        # Create a copy without tests for client
+        exercise_data = {
+            'id': exercise['id'],
+            'name': exercise['name'],
+            'description': exercise['description'],
+            'template': exercise['template'] or ""  
+        }
+        return exercise_data
 
     def evaluate_submission(self, project_name: str, filename: str, code: str, exercise_id: str) -> Dict[str, Any]:
         """Évalue la soumission d'un exercice"""
         try:
-            exercise_path = os.path.join(self.exercises_dir, f"{exercise_id}.json")
-            exercise_content = self.file_service.load_file(exercise_path)
-            exercise = json.loads(exercise_content)
-            tests = exercise.get('tests', [])
+            # Find the exercise
+            exercise = next(
+                (ex for ex in self.exercises_data['exercises'] if ex['id'] == exercise_id),
+                None
+            )
             
+            if not exercise:
+                return {
+                    'success': False,
+                    'message': f'Exercise {exercise_id} not found'
+                }
+
+            tests = exercise.get('tests', [])
             if not tests:
                 return {
                     'success': False,

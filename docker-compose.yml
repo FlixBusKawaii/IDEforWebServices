@@ -1,13 +1,13 @@
-version: '3.8'
 services:
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "5000:5000"
+      - "5050:5000"
     volumes:
       - ./backend:/app/backend:ro
+      - ./Exercice_files:/app/Exercice_files
       - ./ide_projects:/app/ide_projects
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -15,7 +15,7 @@ services:
       - FLASK_APP=/app/backend/app.py
       - PROJECTS_DIR=/app/ide_projects
       - MONGO_URI=mongodb://mongodb:27017
-      - MONGO_DB_NAME=my_database
+      - MONGO_DB_NAME=Userdatabase
     depends_on:
       - mongodb
     privileged: true
@@ -28,6 +28,16 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+  db_initializer:
+    build:
+      context: .
+      dockerfile: Dockerfile.db_initializer
+    container_name: db_initializer
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+    command: ["python", "initialize_db.py"]
 
 volumes:
   mongodb_data:

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/login-register.css">
 </head>
 <body>
     <form action="/register" method="POST">
@@ -20,8 +20,9 @@
 
         <label for="confirm_password">Confirm Password:</label>
         <input type="password" id="confirm_password" name="confirm_password" required>
-
+        <p>Déjà un compte ? <a href="/login">Se connecter</a></p>
         <button type="submit">Register</button>
     </form>
+    
 </body>
 </html>

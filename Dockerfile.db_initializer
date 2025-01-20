@@ -1,0 +1,5 @@
+FROM python:3.9-slim
+WORKDIR /app
+COPY initialize_db.py ./
+RUN pip install pymongo faker
+CMD ["python", "initialize_db.py"]

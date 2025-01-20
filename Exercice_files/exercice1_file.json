@@ -35,6 +35,96 @@
                     "expected_output": "True"
                 }
             ]
+        },
+        {
+            "id": "ex003",
+            "name": "Somme des Éléments d'une Liste",
+            "description": "Créez une fonction qui calcule la somme de tous les éléments d'une liste",
+            "template": "def sum_list(numbers):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test liste vide",
+                    "test_code": "assert sum_list([]) == 0",
+                    "expected_output": "0"
+                },
+                {
+                    "name": "Test liste avec des nombres",
+                    "test_code": "assert sum_list([1, 2, 3, 4, 5]) == 15",
+                    "expected_output": "15"
+                }
+            ]
+        },
+        {
+            "id": "ex004",
+            "name": "Recherche de l'Élément Maximum",
+            "description": "Créez une fonction qui trouve l'élément maximum dans une liste",
+            "template": "def find_max(numbers):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test liste vide",
+                    "test_code": "assert find_max([]) == None",
+                    "expected_output": "None"
+                },
+                {
+                    "name": "Test liste avec des nombres",
+                    "test_code": "assert find_max([1, 3, 5, 2, 4]) == 5",
+                    "expected_output": "5"
+                }
+            ]
+        },
+        {
+            "id": "ex005",
+            "name": "Inversion d'une Chaîne",
+            "description": "Créez une fonction qui inverse une chaîne de caractères",
+            "template": "def reverse_string(text):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test chaîne vide",
+                    "test_code": "assert reverse_string('') == ''",
+                    "expected_output": "''"
+                },
+                {
+                    "name": "Test chaîne simple",
+                    "test_code": "assert reverse_string('hello') == 'olleh'",
+                    "expected_output": "'olleh'"
+                }
+            ]
+        },
+        {
+            "id": "ex006",
+            "name": "Compteur de Voyelles",
+            "description": "Créez une fonction qui compte le nombre de voyelles dans une chaîne",
+            "template": "def count_vowels(text):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test chaîne vide",
+                    "test_code": "assert count_vowels('') == 0",
+                    "expected_output": "0"
+                },
+                {
+                    "name": "Test chaîne avec voyelles",
+                    "test_code": "assert count_vowels('hello') == 2",
+                    "expected_output": "2"
+                }
+            ]
+        },
+        {
+            "id": "ex007",
+            "name": "Fibonacci",
+            "description": "Créez une fonction qui retourne le n-ième nombre de la suite de Fibonacci",
+            "template": "def fibonacci(n):\n    # Votre code ici\n    pass",
+            "tests": [
+                {
+                    "name": "Test Fibonacci de 0",
+                    "test_code": "assert fibonacci(0) == 0",
+                    "expected_output": "0"
+                },
+                {
+                    "name": "Test Fibonacci de 5",
+                    "test_code": "assert fibonacci(5) == 5",
+                    "expected_output": "5"
+                }
+            ]
         }
     ]
 }

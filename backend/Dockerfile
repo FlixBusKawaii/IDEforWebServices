@@ -15,5 +15,4 @@ COPY backend/ /app/backend/
 COPY ../compilers /app/compilers
 
 WORKDIR /app/backend
-
 CMD ["python", "app.py"]

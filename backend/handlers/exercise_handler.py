@@ -1,13 +1,17 @@
-# socket_handlers/exercise_handlers.py
 from flask_socketio import emit
+from config import Config
+import os
 from services.exercise_service import ExerciseService
+from services.file_service import FileService
+from services.execution_service import ExecutionService
 
 def register_exercise_handlers(socketio):
-    exercise_service = ExerciseService()
+    exercise_service = ExerciseService(ExecutionService,  os.path.join(Config.EXERCISES_DIR,  "exercice1_file.json") )
     @socketio.on('get_exercises')
     def handle_get_exercises():
         """Récupère la liste de tous les exercices"""
         try:
+            print("envoi des exercices")
             exercises = exercise_service.get_all_exercises()
             emit('exercises_list', exercises)
         except Exception as e:
